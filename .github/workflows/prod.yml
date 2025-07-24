@@ -81,8 +81,11 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install sshpass
 
-      - name: Copy compose.yml to droplet
-        run: sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
+      - name: Copy files to droplet
+        run: |
+          sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
+          sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no -r nginx root@${{ vars.DROPLET_IP }}:~
+          sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no init-letsencrypt.sh root@${{ vars.DROPLET_IP }}:~
 
       - name: Deploy
         uses: appleboy/ssh-action@master
@@ -95,4 +98,12 @@ jobs:
             export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
             docker compose down
             docker compose pull
+            
+            # Initialize SSL certificates if they don't exist
+            if [ ! -d "./certbot/conf/live/rust-acc.duckdns.org" ]; then
+              chmod +x init-letsencrypt.sh
+              ./init-letsencrypt.sh
+            fi
+            
+            # Start services (init-letsencrypt.sh handles first run, this handles subsequent runs)
             docker compose up -d

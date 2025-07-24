@@ -4,13 +4,46 @@ services:
     restart: "always" # automatically restart container when server crashes
     environment: # set up environment variables
       AUTH_SERVICE_IP: ${AUTH_SERVICE_IP:-localhost} # Use localhost as the default value
-    ports:
-      - "8000:8000" # expose port 8000 so that applications outside the container can connect to it 
+    expose:
+      - "8000" # expose port internally to other containers only
     depends_on: # only run app-service after auth-service has started
       auth-service:
         condition: service_started
+    networks:
+      - app-network
+      
   auth-service:
     image: ryanycwdev/auth-service
     restart: "always" # automatically restart container when server crashes
+    expose:
+      - "3000" # expose port internally to other containers only
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    restart: "always"
     ports:
-      - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 
+      - "80:80"   # HTTP port
+      - "443:443" # HTTPS port
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - app-service
+      - auth-service
+    networks:
+      - app-network
+
+  certbot:
+    image: certbot/certbot
+    restart: "no"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  app-network:
+    driver: bridge 

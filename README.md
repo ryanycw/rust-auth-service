@@ -42,3 +42,23 @@ docker compose up
 ```
 
 visit http://localhost:8000 and http://localhost:3000
+
+## HTTPS Setup
+
+**Prerequisites:** Ensure rust-acc.duckdns.org points to your server IP (64.227.24.69)
+
+```bash
+# Initialize SSL certificates with Let's Encrypt
+./init-letsencrypt.sh
+
+# Start production services with HTTPS
+docker compose up -d
+```
+
+## Production
+
+**HTTP (current):** http://64.227.24.69:8000/ and http://64.227.24.69:3000  
+**HTTPS:** 
+- App service: https://rust-acc.duckdns.org/app
+- Auth service: https://rust-acc.duckdns.org/auth
+- Root (app): https://rust-acc.duckdns.org
