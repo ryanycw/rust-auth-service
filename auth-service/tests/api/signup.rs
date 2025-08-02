@@ -9,7 +9,7 @@ async fn should_return_201_if_valid_input() {
     let response = app
         .post_signup(&serde_json::json!({
             "email": "test@example.com",
-            "password": "password123",
+            "password": "Password123!",
             "requires2FA": true
         }))
         .await;
@@ -37,19 +37,19 @@ async fn should_return_400_if_invalid_input() {
         // Empty email
         serde_json::json!({
             "email": "",
-            "password": "password123",
+            "password": "Password123!",
             "requires2FA": true
         }),
         // Email without '@'
         serde_json::json!({
             "email": "invalidemail",
-            "password": "password123",
+            "password": "Password123!",
             "requires2FA": true
         }),
         // Email without '@' (different format)
         serde_json::json!({
             "email": "invalid.email.com",
-            "password": "password123",
+            "password": "Password123!",
             "requires2FA": true
         }),
         // Password less than 8 characters
@@ -105,7 +105,7 @@ async fn should_return_409_if_email_already_exists() {
     let email = get_random_email();
     let signup_body = serde_json::json!({
         "email": email,
-        "password": "password123",
+        "password": "Password123!",
         "requires2FA": true
     });
 
@@ -135,7 +135,7 @@ async fn should_return_422_if_malformed_input() {
 
     let test_cases = [
         serde_json::json!({
-            "password": "password123",
+            "password": "Password123!",
             "requires2FA": true
         }),
         serde_json::json!({
