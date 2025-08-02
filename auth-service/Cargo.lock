@@ -46,6 +46,7 @@ dependencies = [
  "fake",
  "quickcheck",
  "quickcheck_macros",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
