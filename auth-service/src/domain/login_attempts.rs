@@ -48,12 +48,10 @@ impl LoginAttemptSummary {
 
     pub fn is_expired(&self, expiry_duration: Duration) -> bool {
         match self.last_attempt {
-            Some(last) => {
-                SystemTime::now()
-                    .duration_since(last)
-                    .map(|duration| duration > expiry_duration)
-                    .unwrap_or(true)
-            }
+            Some(last) => SystemTime::now()
+                .duration_since(last)
+                .map(|duration| duration > expiry_duration)
+                .unwrap_or(true),
             None => true,
         }
     }
@@ -67,8 +65,12 @@ impl Default for LoginAttemptSummary {
 
 #[async_trait::async_trait]
 pub trait LoginAttemptStore {
-    async fn record_attempt(&mut self, attempt: LoginAttempt) -> Result<(), LoginAttemptStoreError>;
-    async fn get_attempt_summary(&self, email: &Email) -> Result<LoginAttemptSummary, LoginAttemptStoreError>;
+    async fn record_attempt(&mut self, attempt: LoginAttempt)
+        -> Result<(), LoginAttemptStoreError>;
+    async fn get_attempt_summary(
+        &self,
+        email: &Email,
+    ) -> Result<LoginAttemptSummary, LoginAttemptStoreError>;
     async fn reset_attempts(&mut self, email: &Email) -> Result<(), LoginAttemptStoreError>;
 }
 
@@ -84,7 +86,7 @@ mod tests {
     #[test]
     fn test_login_attempt_summary_requires_recaptcha_after_three_failures() {
         let mut summary = LoginAttemptSummary::new();
-        
+
         assert!(!summary.requires_recaptcha);
         assert_eq!(summary.failed_attempts, 0);
 
@@ -104,16 +106,16 @@ mod tests {
     #[test]
     fn test_login_attempt_summary_reset_on_success() {
         let mut summary = LoginAttemptSummary::new();
-        
+
         summary.add_failed_attempt();
         summary.add_failed_attempt();
         summary.add_failed_attempt();
-        
+
         assert!(summary.requires_recaptcha);
         assert_eq!(summary.failed_attempts, 3);
 
         summary.reset_on_success();
-        
+
         assert!(!summary.requires_recaptcha);
         assert_eq!(summary.failed_attempts, 0);
     }
@@ -121,15 +123,15 @@ mod tests {
     #[test]
     fn test_login_attempt_expiry() {
         let mut summary = LoginAttemptSummary::new();
-        
+
         // New summary should be considered expired
         assert!(summary.is_expired(Duration::from_secs(3600)));
-        
+
         summary.add_failed_attempt();
-        
+
         // Recent attempt should not be expired
         assert!(!summary.is_expired(Duration::from_secs(3600)));
-        
+
         // Should be expired if we check with zero duration
         assert!(summary.is_expired(Duration::ZERO));
     }

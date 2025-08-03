@@ -2,7 +2,7 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{AuthAPIError, UserStore, Email, Password},
+    domain::{AuthAPIError, Email, Password, UserStore},
     AppState,
 };
 
@@ -11,11 +11,10 @@ pub async fn delete_account(
     Json(request): Json<DeleteAccountRequest>,
 ) -> Result<impl IntoResponse, AuthAPIError> {
     // Parse and validate email and password
-    let email = Email::parse(request.email)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
-    
-    let password = Password::parse(request.password)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let email = Email::parse(request.email).map_err(|_| AuthAPIError::InvalidCredentials)?;
+
+    let password =
+        Password::parse(request.password).map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     let mut user_store = state.user_store.write().await;
 

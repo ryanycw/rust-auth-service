@@ -1,10 +1,10 @@
 use crate::helpers::{get_random_email, TestApp};
 use auth_service::routes::{LoginRequest, LoginResponse, SignupRequest};
-use auth_service::{services::MockRecaptchaService, AppState, Application};
 use auth_service::services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore};
+use auth_service::{services::MockRecaptchaService, AppState, Application};
+use reqwest::StatusCode;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use reqwest::StatusCode;
 
 struct TestAppWithFailingRecaptcha {
     pub address: String,
@@ -63,18 +63,18 @@ impl TestAppWithFailingRecaptcha {
 #[tokio::test]
 async fn should_allow_login_without_recaptcha_for_first_attempts() {
     let app = TestApp::new().await;
-    
+
     // Create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     app.post_signup(&signup_body).await;
 
     // First login attempt without reCAPTCHA should work (if credentials are correct)
@@ -86,32 +86,35 @@ async fn should_allow_login_without_recaptcha_for_first_attempts() {
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     let login_response = response
         .json::<LoginResponse>()
         .await
         .expect("Could not deserialize response");
-    
-    assert_eq!(login_response, LoginResponse::Success { 
-        message: "Login successful".to_string() 
-    });
+
+    assert_eq!(
+        login_response,
+        LoginResponse::Success {
+            message: "Login successful".to_string()
+        }
+    );
 }
 
 #[tokio::test]
 async fn should_require_recaptcha_after_three_failed_attempts() {
     let app = TestApp::new().await;
-    
+
     // Create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     app.post_signup(&signup_body).await;
 
     // Make 3 failed login attempts
@@ -135,30 +138,30 @@ async fn should_require_recaptcha_after_three_failed_attempts() {
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::PRECONDITION_REQUIRED);
-    
+
     let login_response = response
         .json::<LoginResponse>()
         .await
         .expect("Could not deserialize response");
-    
+
     assert_eq!(login_response, LoginResponse::RecaptchaRequired);
 }
 
 #[tokio::test]
 async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
     let app = TestApp::new().await;
-    
+
     // Create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     app.post_signup(&signup_body).await;
 
     // Make 3 failed login attempts to trigger reCAPTCHA requirement
@@ -185,18 +188,18 @@ async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
 #[tokio::test]
 async fn should_reject_login_with_invalid_recaptcha() {
     let app = TestAppWithFailingRecaptcha::new().await;
-    
+
     // Create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     app.post_signup(&signup_body).await;
 
     // Make 3 failed login attempts to trigger reCAPTCHA requirement
@@ -223,18 +226,18 @@ async fn should_reject_login_with_invalid_recaptcha() {
 #[tokio::test]
 async fn should_reset_attempts_after_successful_login() {
     let app = TestApp::new().await;
-    
+
     // Create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     app.post_signup(&signup_body).await;
 
     // Make 3 failed login attempts
@@ -253,7 +256,7 @@ async fn should_reset_attempts_after_successful_login() {
         password: password.clone(),
         recaptcha_token: Some("valid_test_token".to_string()),
     };
-    
+
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -271,12 +274,12 @@ async fn should_reset_attempts_after_successful_login() {
 #[tokio::test]
 async fn should_track_attempts_separately_for_different_emails() {
     let app = TestApp::new().await;
-    
+
     // Create two users
     let email1 = get_random_email();
     let email2 = get_random_email();
     let password = "Password123!".to_string();
-    
+
     for email in [&email1, &email2] {
         let signup_body = SignupRequest {
             email: email.clone(),

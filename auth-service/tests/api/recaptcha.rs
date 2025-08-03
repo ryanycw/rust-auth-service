@@ -1,9 +1,9 @@
 use crate::helpers::{get_random_email, TestApp};
-use auth_service::{services::MockRecaptchaService, AppState, Application};
 use auth_service::services::hashmap_user_store::HashmapUserStore;
+use auth_service::{services::MockRecaptchaService, AppState, Application};
+use reqwest::StatusCode;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use reqwest::StatusCode;
 
 struct TestAppWithFailingRecaptcha {
     pub address: String,
@@ -13,7 +13,9 @@ struct TestAppWithFailingRecaptcha {
 impl TestAppWithFailingRecaptcha {
     pub async fn new() -> Self {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
-        let login_attempt_store = Arc::new(RwLock::new(auth_service::services::HashmapLoginAttemptStore::new()));
+        let login_attempt_store = Arc::new(RwLock::new(
+            auth_service::services::HashmapLoginAttemptStore::new(),
+        ));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(false)); // Always fails
         let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
 
@@ -61,12 +63,12 @@ async fn should_return_400_if_recaptcha_verification_fails() {
         .await;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    
+
     let error_response = response
         .json::<auth_service::ErrorResponse>()
         .await
         .expect("Could not deserialize response body to ErrorResponse");
-    
+
     assert_eq!(error_response.error, "Invalid credentials");
 }
 
@@ -84,12 +86,12 @@ async fn should_return_400_if_recaptcha_token_is_empty() {
         .await;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    
+
     let error_response = response
         .json::<auth_service::ErrorResponse>()
         .await
         .expect("Could not deserialize response body to ErrorResponse");
-    
+
     assert_eq!(error_response.error, "Invalid credentials");
 }
 

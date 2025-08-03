@@ -53,9 +53,13 @@ impl std::fmt::Display for RecaptchaError {
         match self {
             RecaptchaError::InvalidToken => write!(f, "Invalid reCAPTCHA token"),
             RecaptchaError::VerificationFailed => write!(f, "reCAPTCHA verification failed"),
-            RecaptchaError::NetworkError => write!(f, "Network error during reCAPTCHA verification"),
+            RecaptchaError::NetworkError => {
+                write!(f, "Network error during reCAPTCHA verification")
+            }
             RecaptchaError::InvalidSecret => write!(f, "Invalid reCAPTCHA secret"),
-            RecaptchaError::UnexpectedError => write!(f, "Unexpected error during reCAPTCHA verification"),
+            RecaptchaError::UnexpectedError => {
+                write!(f, "Unexpected error during reCAPTCHA verification")
+            }
         }
     }
 }

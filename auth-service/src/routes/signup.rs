@@ -2,7 +2,7 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{AuthAPIError, User, UserStore, Email, Password, RecaptchaToken},
+    domain::{AuthAPIError, Email, Password, RecaptchaToken, User, UserStore},
     AppState,
 };
 
@@ -13,18 +13,18 @@ pub async fn signup(
     // Validate reCAPTCHA token
     let recaptcha_token = RecaptchaToken::new(request.recaptcha_token)
         .map_err(|_| AuthAPIError::InvalidCredentials)?;
-    
-    state.recaptcha_service
+
+    state
+        .recaptcha_service
         .verify_token(&recaptcha_token, None)
         .await
         .map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     // Use Email and Password parsing for validation
-    let email = Email::parse(request.email)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
-    
-    let password = Password::parse(request.password)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let email = Email::parse(request.email).map_err(|_| AuthAPIError::InvalidCredentials)?;
+
+    let password =
+        Password::parse(request.password).map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     let user = User::new(email.clone(), password, request.requires_2fa);
 

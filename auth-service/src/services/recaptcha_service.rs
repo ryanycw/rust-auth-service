@@ -1,8 +1,14 @@
-use crate::domain::{RecaptchaError, RecaptchaToken, RecaptchaVerifyRequest, RecaptchaVerifyResponse};
+use crate::domain::{
+    RecaptchaError, RecaptchaToken, RecaptchaVerifyRequest, RecaptchaVerifyResponse,
+};
 
 #[async_trait::async_trait]
 pub trait RecaptchaService {
-    async fn verify_token(&self, token: &RecaptchaToken, user_ip: Option<String>) -> Result<(), RecaptchaError>;
+    async fn verify_token(
+        &self,
+        token: &RecaptchaToken,
+        user_ip: Option<String>,
+    ) -> Result<(), RecaptchaError>;
 }
 
 pub struct GoogleRecaptchaService {
@@ -21,7 +27,11 @@ impl GoogleRecaptchaService {
 
 #[async_trait::async_trait]
 impl RecaptchaService for GoogleRecaptchaService {
-    async fn verify_token(&self, token: &RecaptchaToken, user_ip: Option<String>) -> Result<(), RecaptchaError> {
+    async fn verify_token(
+        &self,
+        token: &RecaptchaToken,
+        user_ip: Option<String>,
+    ) -> Result<(), RecaptchaError> {
         let request = RecaptchaVerifyRequest {
             secret: self.secret_key.clone(),
             response: token.as_str().to_string(),
@@ -71,7 +81,11 @@ impl MockRecaptchaService {
 
 #[async_trait::async_trait]
 impl RecaptchaService for MockRecaptchaService {
-    async fn verify_token(&self, _token: &RecaptchaToken, _user_ip: Option<String>) -> Result<(), RecaptchaError> {
+    async fn verify_token(
+        &self,
+        _token: &RecaptchaToken,
+        _user_ip: Option<String>,
+    ) -> Result<(), RecaptchaError> {
         if self.should_succeed {
             Ok(())
         } else {
@@ -88,7 +102,7 @@ mod tests {
     async fn test_mock_recaptcha_service_success() {
         let service = MockRecaptchaService::new(true);
         let token = RecaptchaToken::new("test_token".to_string()).unwrap();
-        
+
         let result = service.verify_token(&token, None).await;
         assert!(result.is_ok());
     }
@@ -97,7 +111,7 @@ mod tests {
     async fn test_mock_recaptcha_service_failure() {
         let service = MockRecaptchaService::new(false);
         let token = RecaptchaToken::new("test_token".to_string()).unwrap();
-        
+
         let result = service.verify_token(&token, None).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), RecaptchaError::VerificationFailed);

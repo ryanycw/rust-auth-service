@@ -1,5 +1,5 @@
-use validator::validate_length;
 use regex::Regex;
+use validator::validate_length;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Password(String);
@@ -10,28 +10,28 @@ impl Password {
         if !validate_length(&s, Some(8), None, None) {
             return Err("Password must be at least 8 characters long".to_string());
         }
-        
+
         // Use regex validation for password strength requirements
         let uppercase_regex = Regex::new(r"[A-Z]").unwrap();
         if !uppercase_regex.is_match(&s) {
             return Err("Password must contain at least one uppercase letter".to_string());
         }
-        
+
         let lowercase_regex = Regex::new(r"[a-z]").unwrap();
         if !lowercase_regex.is_match(&s) {
             return Err("Password must contain at least one lowercase letter".to_string());
         }
-        
+
         let digit_regex = Regex::new(r"\d").unwrap();
         if !digit_regex.is_match(&s) {
             return Err("Password must contain at least one number".to_string());
         }
-        
+
         let special_char_regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
         if !special_char_regex.is_match(&s) {
             return Err("Password must contain at least one special character".to_string());
         }
-        
+
         Ok(Password(s))
     }
 
@@ -73,7 +73,10 @@ mod tests {
     fn test_password_too_short() {
         let password = Password::parse("Test1!".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must be at least 8 characters long");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must be at least 8 characters long"
+        );
     }
 
     #[test]
@@ -86,35 +89,50 @@ mod tests {
     fn test_password_missing_uppercase() {
         let password = Password::parse("test123!".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must contain at least one uppercase letter");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must contain at least one uppercase letter"
+        );
     }
 
     #[test]
     fn test_password_missing_lowercase() {
         let password = Password::parse("TEST123!".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must contain at least one lowercase letter");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must contain at least one lowercase letter"
+        );
     }
 
     #[test]
     fn test_password_missing_number() {
         let password = Password::parse("TestTest!".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must contain at least one number");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must contain at least one number"
+        );
     }
 
     #[test]
     fn test_password_missing_special_char() {
         let password = Password::parse("TestTest123".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must contain at least one special character");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must contain at least one special character"
+        );
     }
 
     #[test]
     fn test_empty_password() {
         let password = Password::parse("".to_string());
         assert!(password.is_err());
-        assert_eq!(password.unwrap_err(), "Password must be at least 8 characters long");
+        assert_eq!(
+            password.unwrap_err(),
+            "Password must be at least 8 characters long"
+        );
     }
 
     #[test]
@@ -135,7 +153,10 @@ mod tests {
             let password = Password::parse(compliant_password.clone());
             match password {
                 Ok(p) => assert_eq!(p.as_ref(), compliant_password),
-                Err(e) => panic!("Failed to parse password: {} - Error: {}", compliant_password, e),
+                Err(e) => panic!(
+                    "Failed to parse password: {} - Error: {}",
+                    compliant_password, e
+                ),
             }
         }
     }
@@ -176,7 +197,7 @@ mod tests {
                 "Good567*",
                 "Nice890+",
             ];
-            
+
             let index = valid_passwords.len() % 8; // Simple deterministic selection
             ValidPassword(valid_passwords[index].to_string())
         }

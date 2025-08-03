@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use auth_service::{services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService}, AppState, Application};
+use auth_service::{
+    services::{
+        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService,
+    },
+    AppState, Application,
+};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 

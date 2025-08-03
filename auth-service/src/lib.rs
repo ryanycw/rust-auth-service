@@ -4,7 +4,9 @@ use tower_http::services::ServeDir;
 
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
-use crate::services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService};
+use crate::services::{
+    hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService,
+};
 
 pub mod domain;
 pub mod routes;
@@ -32,8 +34,16 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(user_store: UserStoreType, login_attempt_store: LoginAttemptStoreType, recaptcha_service: RecaptchaServiceType) -> Self {
-        Self { user_store, login_attempt_store, recaptcha_service }
+    pub fn new(
+        user_store: UserStoreType,
+        login_attempt_store: LoginAttemptStoreType,
+        recaptcha_service: RecaptchaServiceType,
+    ) -> Self {
+        Self {
+            user_store,
+            login_attempt_store,
+            recaptcha_service,
+        }
     }
 }
 

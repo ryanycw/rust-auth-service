@@ -2,7 +2,9 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{AuthAPIError, UserStore, Email, Password, RecaptchaToken, LoginAttempt, LoginAttemptStore},
+    domain::{
+        AuthAPIError, Email, LoginAttempt, LoginAttemptStore, Password, RecaptchaToken, UserStore,
+    },
     AppState,
 };
 
@@ -17,7 +19,9 @@ pub async fn login(
     // Check if reCAPTCHA is required for this email
     let login_attempt_summary = {
         let login_attempt_store = state.login_attempt_store.read().await;
-        login_attempt_store.get_attempt_summary(&email).await
+        login_attempt_store
+            .get_attempt_summary(&email)
+            .await
             .map_err(|_| AuthAPIError::UnexpectedError)?
     };
 
@@ -26,14 +30,18 @@ pub async fn login(
         if let Some(recaptcha_token_str) = request.recaptcha_token {
             let recaptcha_token = RecaptchaToken::new(recaptcha_token_str)
                 .map_err(|_| AuthAPIError::InvalidCredentials)?;
-            
-            state.recaptcha_service
+
+            state
+                .recaptcha_service
                 .verify_token(&recaptcha_token, None)
                 .await
                 .map_err(|_| AuthAPIError::InvalidCredentials)?;
         } else {
             // Return specific error indicating reCAPTCHA is required
-            return Ok((StatusCode::PRECONDITION_REQUIRED, Json(LoginResponse::RecaptchaRequired)));
+            return Ok((
+                StatusCode::PRECONDITION_REQUIRED,
+                Json(LoginResponse::RecaptchaRequired),
+            ));
         }
     }
 
@@ -45,15 +53,17 @@ pub async fn login(
     let login_attempt = LoginAttempt::new(email.clone(), validation_result.is_ok());
     {
         let mut login_attempt_store = state.login_attempt_store.write().await;
-        login_attempt_store.record_attempt(login_attempt).await
+        login_attempt_store
+            .record_attempt(login_attempt)
+            .await
             .map_err(|_| AuthAPIError::UnexpectedError)?;
     }
 
     match validation_result {
         Ok(_) => {
             // Successful login
-            let response = Json(LoginResponse::Success { 
-                message: "Login successful".to_string() 
+            let response = Json(LoginResponse::Success {
+                message: "Login successful".to_string(),
             });
             Ok((StatusCode::OK, response))
         }

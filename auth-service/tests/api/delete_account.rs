@@ -9,14 +9,14 @@ async fn should_delete_account_with_valid_credentials() {
     // First, create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
@@ -25,7 +25,7 @@ async fn should_delete_account_with_valid_credentials() {
         email: email.clone(),
         password: password.clone(),
     };
-    
+
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::OK);
 
@@ -33,7 +33,7 @@ async fn should_delete_account_with_valid_credentials() {
         .json::<auth_service::routes::DeleteAccountResponse>()
         .await
         .expect("Could not deserialize response body to DeleteAccountResponse");
-    
+
     assert_eq!(json_body.message, "Account deleted successfully!");
 
     // Verify the user can no longer sign up with the same email (meaning it was truly deleted)
@@ -48,14 +48,14 @@ async fn should_fail_to_delete_account_with_wrong_password() {
     // First, create a user
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
@@ -64,7 +64,7 @@ async fn should_fail_to_delete_account_with_wrong_password() {
         email: email.clone(),
         password: "WrongPassword456!".to_string(),
     };
-    
+
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 
@@ -81,7 +81,7 @@ async fn should_fail_to_delete_non_existent_account() {
         email: get_random_email(),
         password: "Password123!".to_string(),
     };
-    
+
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 }
@@ -94,7 +94,7 @@ async fn should_fail_to_delete_account_with_invalid_email() {
         email: "invalid-email".to_string(),
         password: "Password123!".to_string(),
     };
-    
+
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 }
@@ -106,14 +106,14 @@ async fn should_fail_to_delete_account_with_invalid_password() {
     // Create a user first
     let email = get_random_email();
     let password = "Password123!".to_string();
-    
+
     let signup_body = SignupRequest {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
         recaptcha_token: "test_token".to_string(),
     };
-    
+
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
@@ -122,7 +122,7 @@ async fn should_fail_to_delete_account_with_invalid_password() {
         email: email.clone(),
         password: "weak".to_string(), // Too weak password
     };
-    
+
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 
