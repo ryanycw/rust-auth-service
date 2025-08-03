@@ -37,7 +37,7 @@ pub async fn signup(
     Ok((StatusCode::CREATED, response))
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SignupRequest {
     pub email: String,
     pub password: String,

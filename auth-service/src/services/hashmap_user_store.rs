@@ -32,6 +32,17 @@ impl UserStore for HashmapUserStore {
         }
         Ok(())
     }
+
+    async fn delete_user(&mut self, email: &Email, password: &Password) -> Result<(), UserStoreError> {
+        // First validate the user credentials
+        self.validate_user(email, password).await?;
+        
+        // Remove the user from storage
+        self.users.remove(email)
+            .ok_or(UserStoreError::UserNotFound)?;
+        
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -172,5 +183,51 @@ mod tests {
             .validate_user(&email3, &password3)
             .await
             .is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_delete_user_success() {
+        let mut user_store = HashmapUserStore::default();
+        let user = create_user("delete@example.com", "Password123!").await;
+        let email = user.email.clone();
+        let password = user.password.clone();
+
+        user_store.add_user(user).await.unwrap();
+        assert!(user_store.get_user(&email).await.is_ok());
+
+        let result = user_store.delete_user(&email, &password).await;
+        assert!(result.is_ok());
+
+        let get_result = user_store.get_user(&email).await;
+        assert!(get_result.is_err());
+        assert_eq!(get_result.unwrap_err(), UserStoreError::UserNotFound);
+    }
+
+    #[tokio::test]
+    async fn test_delete_user_wrong_password() {
+        let mut user_store = HashmapUserStore::default();
+        let user = create_user("delete@example.com", "Password123!").await;
+        let email = user.email.clone();
+        let wrong_password = Password::parse("WrongPassword456!".to_string()).unwrap();
+
+        user_store.add_user(user).await.unwrap();
+
+        let result = user_store.delete_user(&email, &wrong_password).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), UserStoreError::InvalidCredentials);
+
+        // User should still exist
+        assert!(user_store.get_user(&email).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_delete_non_existent_user() {
+        let mut user_store = HashmapUserStore::default();
+        let email = Email::parse("nonexistent@example.com".to_string()).unwrap();
+        let password = Password::parse("AnyPassword123!".to_string()).unwrap();
+
+        let result = user_store.delete_user(&email, &password).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), UserStoreError::UserNotFound);
     }
 }

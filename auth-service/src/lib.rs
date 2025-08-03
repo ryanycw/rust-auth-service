@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 
 use crate::domain::AuthAPIError;
-use crate::routes::{login, logout, signup, verify_2fa, verify_token};
+use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
 use crate::services::hashmap_user_store::HashmapUserStore;
 
 pub mod domain;
@@ -13,7 +13,7 @@ pub mod services;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{delete, post},
     serve::Serve,
     Json, Router,
 };
@@ -50,6 +50,7 @@ impl Application {
             .route("/verify-2fa", post(verify_2fa))
             .route("/logout", post(logout))
             .route("/verify-token", post(verify_token))
+            .route("/delete-account", delete(delete_account))
             .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
