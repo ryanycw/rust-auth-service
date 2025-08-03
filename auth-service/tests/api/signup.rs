@@ -10,7 +10,8 @@ async fn should_return_201_if_valid_input() {
         .post_signup(&serde_json::json!({
             "email": "test@example.com",
             "password": "Password123!",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }))
         .await;
 
@@ -38,43 +39,50 @@ async fn should_return_400_if_invalid_input() {
         serde_json::json!({
             "email": "",
             "password": "Password123!",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Email without '@'
         serde_json::json!({
             "email": "invalidemail",
             "password": "Password123!",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Email without '@' (different format)
         serde_json::json!({
             "email": "invalid.email.com",
             "password": "Password123!",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Password less than 8 characters
         serde_json::json!({
             "email": "test@example.com",
             "password": "short",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Password exactly 7 characters
         serde_json::json!({
             "email": "test@example.com",
             "password": "1234567",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Both email and password invalid
         serde_json::json!({
             "email": "",
             "password": "short",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         // Email without '@' and short password
         serde_json::json!({
             "email": "invalidemail",
             "password": "123",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
     ];
 
@@ -106,7 +114,8 @@ async fn should_return_409_if_email_already_exists() {
     let signup_body = serde_json::json!({
         "email": email,
         "password": "Password123!",
-        "requires2FA": true
+        "requires2FA": true,
+        "recaptchaToken": "test_token"
     });
 
     // First signup should succeed
@@ -136,11 +145,13 @@ async fn should_return_422_if_malformed_input() {
     let test_cases = [
         serde_json::json!({
             "password": "Password123!",
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
         serde_json::json!({
             "email": random_email,
-            "requires2FA": true
+            "requires2FA": true,
+            "recaptchaToken": "test_token"
         }),
     ];
 

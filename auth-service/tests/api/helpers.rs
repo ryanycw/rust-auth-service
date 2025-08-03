@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use auth_service::{services::hashmap_user_store::HashmapUserStore, AppState, Application};
+use auth_service::{services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService}, AppState, Application};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -12,7 +12,9 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
-        let app_state = AppState::new(user_store);
+        let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
+        let recaptcha_service = Arc::new(MockRecaptchaService::new(true));
+        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
 
         let app = Application::build(app_state, "127.0.0.1:0")
             .await
@@ -53,9 +55,13 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_login(&self) -> reqwest::Response {
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
         self.http_client
             .post(&format!("{}/login", &self.address))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")

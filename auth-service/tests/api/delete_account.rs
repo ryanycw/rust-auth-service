@@ -14,6 +14,7 @@ async fn should_delete_account_with_valid_credentials() {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
+        recaptcha_token: "test_token".to_string(),
     };
     
     let signup_response = app.post_signup(&signup_body).await;
@@ -52,6 +53,7 @@ async fn should_fail_to_delete_account_with_wrong_password() {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
+        recaptcha_token: "test_token".to_string(),
     };
     
     let signup_response = app.post_signup(&signup_body).await;
@@ -109,6 +111,7 @@ async fn should_fail_to_delete_account_with_invalid_password() {
         email: email.clone(),
         password: password.clone(),
         requires_2fa: false,
+        recaptcha_token: "test_token".to_string(),
     };
     
     let signup_response = app.post_signup(&signup_body).await;

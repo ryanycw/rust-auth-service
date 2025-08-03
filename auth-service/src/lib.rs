@@ -4,7 +4,7 @@ use tower_http::services::ServeDir;
 
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
-use crate::services::hashmap_user_store::HashmapUserStore;
+use crate::services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService};
 
 pub mod domain;
 pub mod routes;
@@ -21,15 +21,19 @@ use serde::{Deserialize, Serialize};
 
 // Using a type alias to improve readability!
 pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
+pub type LoginAttemptStoreType = Arc<RwLock<HashmapLoginAttemptStore>>;
+pub type RecaptchaServiceType = Arc<dyn RecaptchaService + Send + Sync>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub user_store: UserStoreType,
+    pub login_attempt_store: LoginAttemptStoreType,
+    pub recaptcha_service: RecaptchaServiceType,
 }
 
 impl AppState {
-    pub fn new(user_store: UserStoreType) -> Self {
-        Self { user_store }
+    pub fn new(user_store: UserStoreType, login_attempt_store: LoginAttemptStoreType, recaptcha_service: RecaptchaServiceType) -> Self {
+        Self { user_store, login_attempt_store, recaptcha_service }
     }
 }
 

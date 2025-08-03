@@ -85,10 +85,32 @@ Currently uses **in-memory HashMap storage** via `HashmapUserStore`. The `UserSt
 - **Integration Tests**: API endpoint testing in `tests/api/` using `TestApp` helper
 - **Test Utilities**: `helpers.rs` provides `TestApp` for spawning test servers and `get_random_email()` for unique test data
 
+## Fraud Detection (reCAPTCHA)
+
+The system includes Google reCAPTCHA v2 integration for fraud detection:
+
+### Signup Protection
+- **Always Required**: All signup requests require valid reCAPTCHA token verification
+- **Frontend**: reCAPTCHA widget integrated into signup form with JavaScript validation
+- **Backend**: reCAPTCHA validation occurs before user creation
+
+### Progressive Login Protection
+- **Smart Protection**: reCAPTCHA required only after 3 failed login attempts per email
+- **Domain Layer**: `LoginAttempt` tracking with `LoginAttemptStore` trait and `LoginAttemptSummary` 
+- **Service Layer**: `HashmapLoginAttemptStore` tracks failed attempts with 1-hour expiry
+- **Frontend**: Conditional reCAPTCHA widget that appears when needed (HTTP 428 response)
+- **Auto-Reset**: Successful login resets the failed attempt counter
+
+### reCAPTCHA Configuration
+- **Development**: Uses `MockRecaptchaService` (always succeeds)
+- **Production**: Set up `GoogleRecaptchaService` with real secret key
+- **Frontend**: Update site key in HTML (currently using test key)
+
 ## Development Notes
 
 - All user data validation occurs at the domain layer through Email and Password types
 - Password validation includes complexity requirements (implemented in Password struct)
 - Email validation uses regex patterns (implemented in Email struct)  
+- reCAPTCHA validation prevents automated account creation and bot attacks
 - Error handling follows domain-driven design with `AuthAPIError` mapping to HTTP responses
 - The system is designed for future extension (database integration, additional auth methods, etc.)

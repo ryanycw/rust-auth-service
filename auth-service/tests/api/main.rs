@@ -2,6 +2,8 @@ mod delete_account;
 mod helpers;
 mod login;
 mod logout;
+mod progressive_recaptcha_login;
+mod recaptcha;
 mod root;
 mod signup;
 mod verify_2fa;
