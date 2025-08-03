@@ -10,12 +10,9 @@ pub async fn login(
     State(state): State<AppState>,
     Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, AuthAPIError> {
-    // Parse and validate email and password
-    let email = Email::parse(request.email)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
-    
-    let password = Password::parse(request.password)
-        .map_err(|_| AuthAPIError::InvalidCredentials)?;
+    // For login, create Email and Password without validation (validation only needed for signup)
+    let email = Email::from_string(request.email.clone());
+    let password = Password::from_string(request.password.clone());
 
     // Check if reCAPTCHA is required for this email
     let login_attempt_summary = {

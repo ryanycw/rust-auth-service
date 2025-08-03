@@ -152,8 +152,27 @@ signupButton.addEventListener("click", (e) => {
     const password = signupForm.password.value;
     const requires2FA = signupForm.twoFA.checked;
     
-    // Get reCAPTCHA response
-    const recaptchaToken = grecaptcha.getResponse();
+    // Get reCAPTCHA response from the signup widget specifically
+    let recaptchaToken = '';
+    const signupRecaptchaElement = signupForm.querySelector('.g-recaptcha');
+    
+    if (signupRecaptchaElement) {
+        // Find the index of the signup reCAPTCHA widget
+        const allWidgets = document.querySelectorAll('.g-recaptcha');
+        let signupWidgetIndex = -1;
+        
+        for (let i = 0; i < allWidgets.length; i++) {
+            if (allWidgets[i] === signupRecaptchaElement) {
+                signupWidgetIndex = i;
+                break;
+            }
+        }
+        
+        if (signupWidgetIndex >= 0) {
+            recaptchaToken = grecaptcha.getResponse(signupWidgetIndex);
+        }
+    }
+    
     
     if (!recaptchaToken) {
         signupErrAlter.innerHTML = `<span><strong>Error: </strong>Please complete the reCAPTCHA verification</span>`;

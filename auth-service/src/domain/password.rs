@@ -34,6 +34,11 @@ impl Password {
         
         Ok(Password(s))
     }
+
+    // For login - create without validation (credentials will be validated against stored user)
+    pub fn from_string(s: String) -> Self {
+        Password(s)
+    }
 }
 
 impl AsRef<str> for Password {
