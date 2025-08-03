@@ -126,7 +126,7 @@ async fn should_require_recaptcha_after_three_failed_attempts() {
         };
 
         let response = app.post_login(&login_body).await;
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST); // Invalid credentials
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED); // Invalid credentials
     }
 
     // 4th attempt without reCAPTCHA should require reCAPTCHA

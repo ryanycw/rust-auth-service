@@ -11,11 +11,6 @@ impl Email {
             Err("Invalid email format".to_string())
         }
     }
-
-    // For login - create without validation (credentials will be validated against stored user)
-    pub fn from_string(s: String) -> Self {
-        Email(s)
-    }
 }
 
 impl AsRef<str> for Email {
