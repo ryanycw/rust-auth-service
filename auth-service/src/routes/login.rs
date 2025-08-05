@@ -20,7 +20,7 @@ pub async fn login(
         Ok(e) => e,
         Err(_) => return (jar, Err(AuthAPIError::InvalidInput)),
     };
-    
+
     let password = match Password::parse(request.password) {
         Ok(p) => p,
         Err(_) => return (jar, Err(AuthAPIError::InvalidInput)),
