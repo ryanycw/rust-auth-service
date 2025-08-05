@@ -15,10 +15,10 @@ pub struct TestApp {
 }
 
 impl TestApp {
-    pub async fn new() -> Self {
+    pub async fn new(recaptcha_success: bool) -> Self {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-        let recaptcha_service = Arc::new(MockRecaptchaService::new(true));
+        let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
 
         let app = Application::build(app_state, "127.0.0.1:0")

@@ -1,68 +1,10 @@
 use crate::helpers::{get_random_email, TestApp};
 use auth_service::routes::{LoginRequest, LoginResponse, SignupRequest};
-use auth_service::services::{hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore};
-use auth_service::{services::MockRecaptchaService, AppState, Application};
 use reqwest::StatusCode;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
-struct TestAppWithFailingRecaptcha {
-    pub address: String,
-    pub http_client: reqwest::Client,
-}
-
-impl TestAppWithFailingRecaptcha {
-    pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
-        let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-        let recaptcha_service = Arc::new(MockRecaptchaService::new(false)); // Always fails
-        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
-
-        let app = Application::build(app_state, "127.0.0.1:0")
-            .await
-            .expect("Failed to build app");
-
-        let address = format!("http://{}", app.address.clone());
-
-        #[allow(clippy::let_underscore_future)]
-        let _ = tokio::spawn(app.run());
-
-        let http_client = reqwest::Client::new();
-
-        Self {
-            address,
-            http_client,
-        }
-    }
-
-    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
-        self.http_client
-            .post(&format!("{}/signup", &self.address))
-            .json(body)
-            .send()
-            .await
-            .expect("Failed to execute request.")
-    }
-
-    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
-        self.http_client
-            .post(&format!("{}/login", &self.address))
-            .json(body)
-            .send()
-            .await
-            .expect("Failed to execute request.")
-    }
-}
 
 #[tokio::test]
 async fn should_allow_login_without_recaptcha_for_first_attempts() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -102,7 +44,7 @@ async fn should_allow_login_without_recaptcha_for_first_attempts() {
 
 #[tokio::test]
 async fn should_require_recaptcha_after_three_failed_attempts() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -149,7 +91,7 @@ async fn should_require_recaptcha_after_three_failed_attempts() {
 
 #[tokio::test]
 async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -187,7 +129,7 @@ async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
 
 #[tokio::test]
 async fn should_reject_login_with_invalid_recaptcha() {
-    let app = TestAppWithFailingRecaptcha::new().await;
+    let app = TestApp::new(false).await;
 
     // Create a user
     let email = get_random_email();
@@ -225,7 +167,7 @@ async fn should_reject_login_with_invalid_recaptcha() {
 
 #[tokio::test]
 async fn should_reset_attempts_after_successful_login() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -273,7 +215,7 @@ async fn should_reset_attempts_after_successful_login() {
 
 #[tokio::test]
 async fn should_track_attempts_separately_for_different_emails() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create two users
     let email1 = get_random_email();

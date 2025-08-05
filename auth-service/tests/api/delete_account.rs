@@ -4,7 +4,7 @@ use reqwest::StatusCode;
 
 #[tokio::test]
 async fn should_delete_account_with_valid_credentials() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // First, create a user
     let email = get_random_email();
@@ -43,7 +43,7 @@ async fn should_delete_account_with_valid_credentials() {
 
 #[tokio::test]
 async fn should_fail_to_delete_account_with_wrong_password() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // First, create a user
     let email = get_random_email();
@@ -75,7 +75,7 @@ async fn should_fail_to_delete_account_with_wrong_password() {
 
 #[tokio::test]
 async fn should_fail_to_delete_non_existent_account() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     let delete_body = DeleteAccountRequest {
         email: get_random_email(),
@@ -88,7 +88,7 @@ async fn should_fail_to_delete_non_existent_account() {
 
 #[tokio::test]
 async fn should_fail_to_delete_account_with_invalid_email() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     let delete_body = DeleteAccountRequest {
         email: "invalid-email".to_string(),
@@ -101,7 +101,7 @@ async fn should_fail_to_delete_account_with_invalid_email() {
 
 #[tokio::test]
 async fn should_fail_to_delete_account_with_invalid_password() {
-    let app = TestApp::new().await;
+    let app = TestApp::new(true).await;
 
     // Create a user first
     let email = get_random_email();
