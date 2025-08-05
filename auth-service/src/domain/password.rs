@@ -144,7 +144,7 @@ mod tests {
             let fake_password: String = FakePassword(8..20).fake();
             // Since fake passwords might not meet our strict requirements,
             // we'll create compliant passwords based on them
-            let compliant_password = format!("A{}1!", fake_password);
+            let compliant_password = format!("As{}1!", fake_password);
             let password = Password::parse(compliant_password.clone());
             match password {
                 Ok(p) => assert_eq!(p.as_ref(), compliant_password),
