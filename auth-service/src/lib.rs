@@ -1,6 +1,10 @@
 use std::{error::Error, sync::Arc};
 use tokio::sync::RwLock;
-use tower_http::services::ServeDir;
+use tower_http::{
+    cors::CorsLayer,
+    services::ServeDir,
+};
+use axum::http::{HeaderValue, Method};
 
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
@@ -58,6 +62,22 @@ pub struct Application {
 
 impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
+        // Parse CORS allowed origins from environment variable
+        let cors_origins = crate::utils::constants::CORS_ALLOWED_ORIGINS.clone();
+        
+        // Parse comma-separated origins
+        let origins: Vec<HeaderValue> = cors_origins
+            .split(',')
+            .filter_map(|origin| origin.trim().parse().ok())
+            .collect();
+        
+        let cors = CorsLayer::new()
+            .allow_origin(origins)
+            .allow_credentials(true)
+            .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+            .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+            .expose_headers([axum::http::header::SET_COOKIE]);
+
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(signup))
@@ -66,6 +86,7 @@ impl Application {
             .route("/logout", post(logout))
             .route("/verify-token", post(verify_token))
             .route("/delete-account", delete(delete_account))
+            .layer(cors)
             .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
