@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use auth_service::{
     services::{
-        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService,
+        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore,
     },
     utils::constants::test,
-    AppState, Application,
+    AppState, Application, BannedTokenStoreType,
 };
 use reqwest::cookie::Jar;
 use tokio::sync::RwLock;
@@ -15,14 +15,16 @@ pub struct TestApp {
     pub address: String,
     pub http_client: reqwest::Client,
     pub cookie_jar: Arc<Jar>,
+    pub banned_token_store: BannedTokenStoreType,
 }
 
 impl TestApp {
     pub async fn new(recaptcha_success: bool) -> Self {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
+        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
-        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
+        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone());
 
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
@@ -45,6 +47,7 @@ impl TestApp {
             address,
             http_client,
             cookie_jar,
+            banned_token_store,
         }
     }
 

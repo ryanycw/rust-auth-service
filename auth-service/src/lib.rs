@@ -8,6 +8,7 @@ use axum::http::{HeaderValue, Method};
 
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
+use crate::domain::BannedTokenStore;
 use crate::services::{
     hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService,
 };
@@ -30,12 +31,14 @@ use serde::{Deserialize, Serialize};
 pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
 pub type LoginAttemptStoreType = Arc<RwLock<HashmapLoginAttemptStore>>;
 pub type RecaptchaServiceType = Arc<dyn RecaptchaService + Send + Sync>;
+pub type BannedTokenStoreType = Arc<RwLock<dyn BannedTokenStore + Send + Sync>>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub user_store: UserStoreType,
     pub login_attempt_store: LoginAttemptStoreType,
     pub recaptcha_service: RecaptchaServiceType,
+    pub banned_token_store: BannedTokenStoreType,
 }
 
 impl AppState {
@@ -43,11 +46,13 @@ impl AppState {
         user_store: UserStoreType,
         login_attempt_store: LoginAttemptStoreType,
         recaptcha_service: RecaptchaServiceType,
+        banned_token_store: BannedTokenStoreType,
     ) -> Self {
         Self {
             user_store,
             login_attempt_store,
             recaptcha_service,
+            banned_token_store,
         }
     }
 }

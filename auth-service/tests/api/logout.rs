@@ -1,5 +1,5 @@
 use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
-use reqwest::{StatusCode, Url};
+use reqwest::{cookie::CookieStore, StatusCode, Url};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -28,9 +28,39 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let login_response = app.post_login(&login_body).await;
     assert_eq!(login_response.status(), StatusCode::OK);
 
+    // Extract JWT token from cookie jar BEFORE logout
+    let cookies = app
+        .cookie_jar
+        .cookies(&app.address.parse().unwrap())
+        .unwrap();
+    let cookie_str = cookies.to_str().unwrap();
+    let jwt_token = cookie_str
+        .split(';')
+        .find(|s| s.trim().starts_with(&format!("{}=", JWT_COOKIE_NAME)))
+        .unwrap()
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .to_string();
+
     // Now logout with the valid JWT cookie
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::OK);
+
+    // Verify the token is now in the banned token store
+    let is_banned = app
+        .banned_token_store
+        .read()
+        .await
+        .contains_token(&jwt_token)
+        .await
+        .expect("Failed to check banned token store");
+
+    assert!(
+        is_banned,
+        "JWT token should be in the banned token store after logout"
+    );
 }
 
 #[tokio::test]
