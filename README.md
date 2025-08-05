@@ -37,11 +37,18 @@ visit http://localhost:3000
 ## Run servers locally (Docker)
 
 ```bash
-docker compose build
-docker compose up
+# For local development (HTTP only, no SSL certificates)
+./docker.sh
 ```
 
-visit http://localhost:8000 and http://localhost:3000
+This uses `compose.local.yml` to override production settings:
+- Builds from local source code instead of Docker Hub images
+- Runs nginx on HTTP only (port 80) without SSL
+- Services accessible at:
+  - http://localhost/ (app via nginx)
+  - http://localhost/auth/ (auth service via nginx)
+  - http://localhost:8000 (app direct)
+  - http://localhost:3000 (auth direct)
 
 ## HTTPS Setup
 
@@ -58,7 +65,8 @@ docker compose up -d
 ## Production
 
 **HTTP (current):** http://64.227.24.69:8000/ and http://64.227.24.69:3000  
-**HTTPS:** 
+**HTTPS:**
+
 - App service: https://rust-acc.duckdns.org/app
 - Auth service: https://rust-acc.duckdns.org/auth
 - Root (app): https://rust-acc.duckdns.org
