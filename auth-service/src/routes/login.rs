@@ -1,78 +1,101 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::{
         AuthAPIError, Email, LoginAttempt, LoginAttemptStore, Password, RecaptchaToken, UserStore,
     },
+    utils::auth::generate_auth_cookie,
     AppState,
 };
 
 pub async fn login(
     State(state): State<AppState>,
+    jar: CookieJar,
     Json(request): Json<LoginRequest>,
-) -> Result<impl IntoResponse, AuthAPIError> {
-    // For login, create Email and Password without validation (validation only needed for signup)
-    let email = Email::parse(request.email.clone()).map_err(|_| AuthAPIError::InvalidInput)?;
-    let password =
-        Password::parse(request.password.clone()).map_err(|_| AuthAPIError::InvalidInput)?;
-
-    // Check if reCAPTCHA is required for this email
-    let login_attempt_summary = {
-        let login_attempt_store = state.login_attempt_store.read().await;
-        login_attempt_store
-            .get_attempt_summary(&email)
-            .await
-            .map_err(|_| AuthAPIError::UnexpectedError)?
+) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
+    // Parse email and password
+    let email = match Email::parse(request.email) {
+        Ok(e) => e,
+        Err(_) => return (jar, Err(AuthAPIError::InvalidInput)),
+    };
+    
+    let password = match Password::parse(request.password) {
+        Ok(p) => p,
+        Err(_) => return (jar, Err(AuthAPIError::InvalidInput)),
     };
 
-    // If reCAPTCHA is required but not provided, return error with indication
-    if login_attempt_summary.requires_recaptcha {
-        if let Some(recaptcha_token_str) = request.recaptcha_token {
-            let recaptcha_token = RecaptchaToken::new(recaptcha_token_str)
-                .map_err(|_| AuthAPIError::InvalidCredentials)?;
+    // Check if reCAPTCHA is required for this email
+    let requires_recaptcha = {
+        let store = state.login_attempt_store.read().await;
+        match store.get_attempt_summary(&email).await {
+            Ok(summary) => summary.requires_recaptcha,
+            Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
+        }
+    };
 
-            state
-                .recaptcha_service
-                .verify_token(&recaptcha_token, None)
-                .await
-                .map_err(|_| AuthAPIError::InvalidCredentials)?;
-        } else {
-            // Return specific error indicating reCAPTCHA is required
-            return Ok((
-                StatusCode::PRECONDITION_REQUIRED,
-                Json(LoginResponse::RecaptchaRequired),
-            ));
+    // Handle reCAPTCHA verification if required
+    if requires_recaptcha {
+        match request.recaptcha_token {
+            Some(token_str) => {
+                let token = match RecaptchaToken::new(token_str) {
+                    Ok(t) => t,
+                    Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
+                };
+
+                if let Err(_) = state.recaptcha_service.verify_token(&token, None).await {
+                    return (jar, Err(AuthAPIError::InvalidCredentials));
+                }
+            }
+            None => {
+                return (
+                    jar,
+                    Ok((
+                        StatusCode::PRECONDITION_REQUIRED,
+                        Json(LoginResponse::RecaptchaRequired),
+                    )),
+                );
+            }
         }
     }
 
     // Validate user credentials
-    let user_store = state.user_store.read().await;
-    let validation_result = user_store.validate_user(&email, &password).await;
+    let is_valid_user = {
+        let store = state.user_store.read().await;
+        store.validate_user(&email, &password).await.is_ok()
+    };
 
     // Record the login attempt
-    let login_attempt = LoginAttempt::new(email.clone(), validation_result.is_ok());
     {
-        let mut login_attempt_store = state.login_attempt_store.write().await;
-        login_attempt_store
-            .record_attempt(login_attempt)
-            .await
-            .map_err(|_| AuthAPIError::UnexpectedError)?;
+        let mut store = state.login_attempt_store.write().await;
+        let attempt = LoginAttempt::new(email.clone(), is_valid_user);
+        if let Err(_) = store.record_attempt(attempt).await {
+            return (jar, Err(AuthAPIError::UnexpectedError));
+        }
     }
 
-    match validation_result {
-        Ok(_) => {
-            // Successful login
-            let response = Json(LoginResponse::Success {
-                message: "Login successful".to_string(),
-            });
-            Ok((StatusCode::OK, response))
-        }
-        Err(_) => {
-            // Failed login - return invalid credentials error
-            Err(AuthAPIError::IncorrectCredentials)
-        }
+    // Return error if credentials are invalid
+    if !is_valid_user {
+        return (jar, Err(AuthAPIError::IncorrectCredentials));
     }
+
+    // Generate auth cookie for successful login
+    let auth_cookie = match generate_auth_cookie(&email) {
+        Ok(cookie) => cookie,
+        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
+    };
+
+    // Return success with updated cookie jar
+    (
+        jar.add(auth_cookie),
+        Ok((
+            StatusCode::OK,
+            Json(LoginResponse::Success {
+                message: "Login successful".to_string(),
+            }),
+        )),
+    )
 }
 
 #[derive(Serialize, Deserialize)]
