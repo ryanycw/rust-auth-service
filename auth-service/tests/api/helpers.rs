@@ -4,6 +4,7 @@ use auth_service::{
     services::{
         hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService,
     },
+    utils::constants::test,
     AppState, Application,
 };
 use reqwest::cookie::Jar;
@@ -23,7 +24,7 @@ impl TestApp {
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
 
-        let app = Application::build(app_state, "127.0.0.1:0")
+        let app = Application::build(app_state, test::APP_ADDRESS)
             .await
             .expect("Failed to build app");
 

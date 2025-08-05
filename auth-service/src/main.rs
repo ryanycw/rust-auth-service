@@ -3,6 +3,7 @@ use std::sync::Arc;
 use auth_service::services::{
     hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService,
 };
+use auth_service::utils::constants::prod;
 use auth_service::{AppState, Application};
 use tokio::sync::RwLock;
 
@@ -17,7 +18,7 @@ async fn main() {
 
     let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service);
 
-    let app = Application::build(app_state, "0.0.0.0:3000")
+    let app = Application::build(app_state, prod::APP_ADDRESS)
         .await
         .expect("Failed to build app");
 
