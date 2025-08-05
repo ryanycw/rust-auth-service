@@ -40,6 +40,7 @@ jobs:
       - name: Build and test auth-service code
         working-directory: ./auth-service
         run: |
+          export JWT_SECRET=secret
           cargo build --verbose
           cargo test --verbose
 
@@ -95,15 +96,16 @@ jobs:
           password: ${{ secrets.DROPLET_PASSWORD }}
           script: |
             cd ~
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
             export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
             docker compose down
             docker compose pull
-            
+
             # Initialize SSL certificates if they don't exist
             if [ ! -d "./certbot/conf/live/rust-acc.duckdns.org" ]; then
               chmod +x init-letsencrypt.sh
               ./init-letsencrypt.sh
             fi
-            
+
             # Start services (init-letsencrypt.sh handles first run, this handles subsequent runs)
             docker compose up -d

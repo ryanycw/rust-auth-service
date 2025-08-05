@@ -15,6 +15,8 @@ services:
   auth-service:
     image: ryanycwdev/auth-service
     restart: "always" # automatically restart container when server crashes
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
     expose:
       - "3000" # expose port internally to other containers only
     networks:
