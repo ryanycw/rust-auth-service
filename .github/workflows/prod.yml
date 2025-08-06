@@ -97,8 +97,7 @@ jobs:
           script: |
             cd ~
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
-            export CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}
+            export DOMAIN=${{ vars.DOMAIN }}
             docker compose down
             docker compose pull
 

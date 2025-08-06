@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     image: app-service:local
     environment:
-      AUTH_SERVICE_IP: localhost
-    ports:
-      - "8000:8000"
+      DOMAIN: http://localhost
+    expose:
+      - "8000"
       
   auth-service:
     build:
@@ -16,9 +16,9 @@ services:
     image: auth-service:local
     environment:
       JWT_SECRET: ${JWT_SECRET:-local-development-secret}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
-    ports:
-      - "3000:3000"
+      CORS_ALLOWED_ORIGINS: http://localhost
+    expose:
+      - "3000"
 
   nginx:
     volumes:

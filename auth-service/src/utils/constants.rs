@@ -20,7 +20,7 @@ fn set_token() -> String {
 fn set_cors_origins() -> String {
     dotenv().ok(); // Load environment variables
     std_env::var(env::CORS_ALLOWED_ORIGINS_ENV_VAR)
-        .unwrap_or_else(|_| "http://localhost:8000,http://127.0.0.1:8000".to_string())
+        .unwrap_or_else(|_| "http://localhost".to_string())
     // Default origins for development
 }
 

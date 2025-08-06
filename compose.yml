@@ -3,7 +3,7 @@ services:
     image: ryanycwdev/app-service # specify name of image on Docker Hub
     restart: "always" # automatically restart container when server crashes
     environment: # set up environment variables
-      AUTH_SERVICE_IP: ${AUTH_SERVICE_IP:-localhost} # Use localhost as the default value
+      DOMAIN: ${DOMAIN}
     expose:
       - "8000" # expose port internally to other containers only
     depends_on: # only run app-service after auth-service has started
@@ -17,6 +17,7 @@ services:
     restart: "always" # automatically restart container when server crashes
     environment:
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${DOMAIN}
     expose:
       - "3000" # expose port internally to other containers only
     networks:

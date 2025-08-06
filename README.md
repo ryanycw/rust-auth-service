@@ -44,11 +44,11 @@ visit http://localhost:3000
 This uses `compose.local.yml` to override production settings:
 - Builds from local source code instead of Docker Hub images
 - Runs nginx on HTTP only (port 80) without SSL
-- Services accessible at:
+- Uses `DOMAIN=http://localhost` for local development
+- Services only accessible through nginx (same as production):
   - http://localhost/ (app via nginx)
   - http://localhost/auth/ (auth service via nginx)
-  - http://localhost:8000 (app direct)
-  - http://localhost:3000 (auth direct)
+  - Direct ports 8000/3000 are NOT exposed for security consistency
 
 ## HTTPS Setup
 
@@ -64,9 +64,13 @@ docker compose up -d
 
 ## Production
 
-**HTTP (current):** http://64.227.24.69:8000/ and http://64.227.24.69:3000  
-**HTTPS:**
+Production uses the `DOMAIN` environment variable (set in GitHub repository variables) to configure both the application URLs and CORS settings.
 
-- App service: https://rust-acc.duckdns.org/app
-- Auth service: https://rust-acc.duckdns.org/auth
-- Root (app): https://rust-acc.duckdns.org
+**HTTPS (via nginx proxy):**
+- Root (app): https://rust-acc.duckdns.org/
+- App service: https://rust-acc.duckdns.org/app/
+- Auth service: https://rust-acc.duckdns.org/auth/
+
+**Environment Configuration:**
+- `DOMAIN`: Set to `https://rust-acc.duckdns.org` in GitHub repository variables
+- This single variable configures both frontend URLs and CORS allowed origins
