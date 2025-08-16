@@ -34,12 +34,7 @@ async fn should_allow_login_without_recaptcha_for_first_attempts() {
         .await
         .expect("Could not deserialize response");
 
-    assert_eq!(
-        login_response,
-        LoginResponse::Success {
-            message: "Login successful".to_string()
-        }
-    );
+    assert_eq!(login_response, LoginResponse::RegularAuth);
 }
 
 #[tokio::test]

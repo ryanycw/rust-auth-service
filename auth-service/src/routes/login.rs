@@ -3,11 +3,11 @@ use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    app_state::AppState,
     domain::{
         AuthAPIError, Email, LoginAttempt, LoginAttemptStore, Password, RecaptchaToken, UserStore,
     },
     utils::auth::generate_auth_cookie,
-    AppState,
 };
 
 pub async fn login(
@@ -60,28 +60,89 @@ pub async fn login(
         }
     }
 
-    // Validate user credentials
-    let is_valid_user = {
+    // Get user and validate credentials
+    let user = {
         let store = state.user_store.read().await;
-        store.validate_user(&email, &password).await.is_ok()
+        match store.get_user(&email).await {
+            Ok(user) => {
+                // Validate password (using same logic as validate_user)
+                if user.password != password {
+                    None
+                } else {
+                    Some(user)
+                }
+            }
+            Err(_) => None,
+        }
     };
 
     // Record the login attempt
     {
         let mut store = state.login_attempt_store.write().await;
-        let attempt = LoginAttempt::new(email.clone(), is_valid_user);
+        let attempt = LoginAttempt::new(email.clone(), user.is_some());
         if let Err(_) = store.record_attempt(attempt).await {
             return (jar, Err(AuthAPIError::UnexpectedError));
         }
     }
 
     // Return error if credentials are invalid
-    if !is_valid_user {
-        return (jar, Err(AuthAPIError::IncorrectCredentials));
-    }
+    let user = match user {
+        Some(u) => u,
+        None => return (jar, Err(AuthAPIError::IncorrectCredentials)),
+    };
 
+    // Handle request based on user's 2FA configuration
+    match user.requires_2fa {
+        true => handle_2fa(&user.email, jar, state).await,
+        false => handle_no_2fa(&user.email, jar).await,
+    }
+}
+
+async fn handle_2fa(
+    email: &Email,
+    jar: CookieJar,
+    state: AppState,
+) -> (
+    CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
+) {
+    use crate::domain::data_stores::{LoginAttemptId, TwoFACode};
+    
+    // Generate a new login attempt ID and 2FA code
+    let login_attempt_id = LoginAttemptId::default();
+    let two_fa_code = TwoFACode::default();
+    
+    // Store the 2FA code in the store
+    let mut store = state.two_fa_code_store.write().await;
+    if let Err(_) = store.add_code(
+        email.clone(),
+        login_attempt_id.clone(),
+        two_fa_code.clone(),
+    ).await {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
+    
+    (
+        jar,
+        Ok((
+            StatusCode::PARTIAL_CONTENT,
+            Json(LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
+                message: "2FA required".to_string(),
+                login_attempt_id: login_attempt_id.as_ref().to_string(),
+            })),
+        )),
+    )
+}
+
+async fn handle_no_2fa(
+    email: &Email,
+    jar: CookieJar,
+) -> (
+    CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
+) {
     // Generate auth cookie for successful login
-    let auth_cookie = match generate_auth_cookie(&email) {
+    let auth_cookie = match generate_auth_cookie(email) {
         Ok(cookie) => cookie,
         Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
     };
@@ -91,11 +152,17 @@ pub async fn login(
         jar.add(auth_cookie),
         Ok((
             StatusCode::OK,
-            Json(LoginResponse::Success {
-                message: "Login successful".to_string(),
-            }),
+            Json(LoginResponse::RegularAuth),
         )),
     )
+}
+
+// If a user requires 2FA, this JSON body should be returned!
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct TwoFactorAuthResponse {
+    pub message: String,
+    #[serde(rename = "loginAttemptId")]
+    pub login_attempt_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -106,11 +173,13 @@ pub struct LoginRequest {
     pub recaptcha_token: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "status")]
 pub enum LoginResponse {
     #[serde(rename = "success")]
-    Success { message: String },
+    RegularAuth,
+    #[serde(rename = "2fa_required")]
+    TwoFactorAuth(TwoFactorAuthResponse),
     #[serde(rename = "recaptcha_required")]
     RecaptchaRequired,
 }

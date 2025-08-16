@@ -1,7 +1,7 @@
 use axum::{extract::{Json, State}, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 
-use crate::{domain::AuthAPIError, utils::auth::validate_token, AppState};
+use crate::{app_state::AppState, domain::AuthAPIError, utils::auth::validate_token};
 
 #[derive(Deserialize)]
 pub struct VerifyTokenRequest {

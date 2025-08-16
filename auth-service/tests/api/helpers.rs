@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use auth_service::{
+    app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
     services::{
-        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore,
+        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore, HashmapTwoFACodeStore,
     },
     utils::constants::test,
-    AppState, Application, BannedTokenStoreType,
+    Application,
 };
 use reqwest::cookie::Jar;
 use tokio::sync::RwLock;
@@ -16,6 +17,7 @@ pub struct TestApp {
     pub http_client: reqwest::Client,
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
+    pub two_fa_code_store: TwoFACodeStoreType,
 }
 
 impl TestApp {
@@ -24,7 +26,9 @@ impl TestApp {
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
-        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone());
+        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+
+        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone(), two_fa_code_store.clone());
 
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
@@ -48,6 +52,7 @@ impl TestApp {
             http_client,
             cookie_jar,
             banned_token_store,
+            two_fa_code_store
         }
     }
 

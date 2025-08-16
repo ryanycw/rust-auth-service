@@ -1,5 +1,4 @@
-use std::{error::Error, sync::Arc};
-use tokio::sync::RwLock;
+use std::error::Error;
 use tower_http::{
     cors::CorsLayer,
     services::ServeDir,
@@ -8,11 +7,9 @@ use axum::http::{HeaderValue, Method};
 
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
-use crate::domain::BannedTokenStore;
-use crate::services::{
-    hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService,
-};
+pub use crate::app_state::AppState;
 
+pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
@@ -27,35 +24,6 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-// Using a type alias to improve readability!
-pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
-pub type LoginAttemptStoreType = Arc<RwLock<HashmapLoginAttemptStore>>;
-pub type RecaptchaServiceType = Arc<dyn RecaptchaService + Send + Sync>;
-pub type BannedTokenStoreType = Arc<RwLock<dyn BannedTokenStore + Send + Sync>>;
-
-#[derive(Clone)]
-pub struct AppState {
-    pub user_store: UserStoreType,
-    pub login_attempt_store: LoginAttemptStoreType,
-    pub recaptcha_service: RecaptchaServiceType,
-    pub banned_token_store: BannedTokenStoreType,
-}
-
-impl AppState {
-    pub fn new(
-        user_store: UserStoreType,
-        login_attempt_store: LoginAttemptStoreType,
-        recaptcha_service: RecaptchaServiceType,
-        banned_token_store: BannedTokenStoreType,
-    ) -> Self {
-        Self {
-            user_store,
-            login_attempt_store,
-            recaptcha_service,
-            banned_token_store,
-        }
-    }
-}
 
 // This struct encapsulates our application-related logic.
 pub struct Application {
