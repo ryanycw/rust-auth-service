@@ -121,6 +121,15 @@ async fn handle_2fa(
     ).await {
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
+
+    // Send 2FA code via email
+    if let Err(_) = state.email_client.send_email(
+        email,
+        "Your 2FA Code",
+        &format!("Your two-factor authentication code is: {}", two_fa_code.as_ref()),
+    ).await {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
     
     (
         jar,

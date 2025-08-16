@@ -3,7 +3,7 @@ use std::sync::Arc;
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
     services::{
-        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore, HashmapTwoFACodeStore,
+        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore, HashmapTwoFACodeStore, MockEmailClient,
     },
     utils::constants::test,
     Application,
@@ -27,8 +27,9 @@ impl TestApp {
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        let email_client = Arc::new(MockEmailClient);
 
-        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone(), two_fa_code_store.clone());
+        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone(), two_fa_code_store.clone(), email_client);
 
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
