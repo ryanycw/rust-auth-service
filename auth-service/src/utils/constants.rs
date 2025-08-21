@@ -6,6 +6,7 @@ use std::env as std_env;
 lazy_static! {
     pub static ref JWT_SECRET: String = set_token();
     pub static ref CORS_ALLOWED_ORIGINS: String = set_cors_origins();
+    pub static ref DATABASE_URL: String = set_database_config();
 }
 
 fn set_token() -> String {
@@ -24,9 +25,20 @@ fn set_cors_origins() -> String {
     // Default origins for development
 }
 
+fn set_database_config() -> String {
+    dotenv().ok(); // Load environment variables
+    let postgres_password = std_env::var(env::POSTGRES_PASSWORD_ENV_VAR)
+        .expect("POSTGRES_PASSWORD_ENV_VAR must be set.");
+    if postgres_password.is_empty() {
+        panic!("POSTGRES_PASSWORD must not be empty.");
+    }
+    let database_url: String = format!("postgres://postgres:{}@db:5432", postgres_password);
+    database_url
+}
 pub mod env {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const CORS_ALLOWED_ORIGINS_ENV_VAR: &str = "CORS_ALLOWED_ORIGINS";
+    pub const POSTGRES_PASSWORD_ENV_VAR: &str = "POSTGRES_PASSWORD";
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";

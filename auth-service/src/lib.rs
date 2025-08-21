@@ -1,13 +1,12 @@
-use std::error::Error;
-use tower_http::{
-    cors::CorsLayer,
-    services::ServeDir,
-};
 use axum::http::{HeaderValue, Method};
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
+use std::error::Error;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
+pub use crate::app_state::AppState;
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
-pub use crate::app_state::AppState;
 
 pub mod app_state;
 pub mod domain;
@@ -24,7 +23,6 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-
 // This struct encapsulates our application-related logic.
 pub struct Application {
     server: Serve<Router, Router>,
@@ -37,18 +35,21 @@ impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         // Parse CORS allowed origins from environment variable
         let cors_origins = crate::utils::constants::CORS_ALLOWED_ORIGINS.clone();
-        
+
         // Parse comma-separated origins
         let origins: Vec<HeaderValue> = cors_origins
             .split(',')
             .filter_map(|origin| origin.trim().parse().ok())
             .collect();
-        
+
         let cors = CorsLayer::new()
             .allow_origin(origins)
             .allow_credentials(true)
             .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
-            .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+            .allow_headers([
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::AUTHORIZATION,
+            ])
             .expose_headers([axum::http::header::SET_COOKIE]);
 
         let router = Router::new()
@@ -100,4 +101,8 @@ impl IntoResponse for AuthAPIError {
         });
         (status, body).into_response()
     }
+}
+
+pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new().max_connections(5).connect(url).await
 }
