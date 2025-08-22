@@ -2,13 +2,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::services::{
-    hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, RecaptchaService,
+    postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, RecaptchaService,
 };
 
 use crate::domain::{BannedTokenStore, TwoFACodeStore, EmailClient};
 
 // Using type aliases to improve readability!
-pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
+pub type UserStoreType = Arc<RwLock<PostgresUserStore>>;
 pub type LoginAttemptStoreType = Arc<RwLock<HashmapLoginAttemptStore>>;
 pub type RecaptchaServiceType = Arc<dyn RecaptchaService + Send + Sync>;
 pub type BannedTokenStoreType = Arc<RwLock<dyn BannedTokenStore + Send + Sync>>;

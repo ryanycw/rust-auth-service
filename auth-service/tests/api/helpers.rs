@@ -2,13 +2,17 @@ use std::sync::Arc;
 
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
+    get_postgres_pool,
     services::{
-        hashmap_user_store::HashmapUserStore, HashmapLoginAttemptStore, MockRecaptchaService, HashsetBannedTokenStore, HashmapTwoFACodeStore, MockEmailClient,
+        postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, HashmapTwoFACodeStore,
+        HashsetBannedTokenStore, MockEmailClient, MockRecaptchaService,
     },
-    utils::constants::test,
+    utils::constants::{test, DATABASE_URL},
     Application,
 };
 use reqwest::cookie::Jar;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Executor, PgPool};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -22,14 +26,23 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new(recaptcha_success: bool) -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let pg_pool = configure_postgresql().await;
+
+        let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         let email_client = Arc::new(MockEmailClient);
 
-        let app_state = AppState::new(user_store, login_attempt_store, recaptcha_service, banned_token_store.clone(), two_fa_code_store.clone(), email_client);
+        let app_state = AppState::new(
+            user_store,
+            login_attempt_store,
+            recaptcha_service,
+            banned_token_store.clone(),
+            two_fa_code_store.clone(),
+            email_client,
+        );
 
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
@@ -53,7 +66,7 @@ impl TestApp {
             http_client,
             cookie_jar,
             banned_token_store,
-            two_fa_code_store
+            two_fa_code_store,
         }
     }
 
@@ -136,4 +149,48 @@ impl TestApp {
 
 pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
+}
+
+async fn configure_postgresql() -> PgPool {
+    let postgresql_conn_url = DATABASE_URL.to_owned();
+
+    // We are creating a new database for each test case, and we need to ensure each database has a unique name!
+    let db_name = Uuid::new_v4().to_string();
+
+    configure_database(&postgresql_conn_url, &db_name).await;
+
+    let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
+
+    // Create a new connection pool and return it
+    get_postgres_pool(&postgresql_conn_url_with_db)
+        .await
+        .expect("Failed to create Postgres connection pool!")
+}
+
+async fn configure_database(db_conn_string: &str, db_name: &str) {
+    // Create database connection
+    let connection = PgPoolOptions::new()
+        .connect(db_conn_string)
+        .await
+        .expect("Failed to create Postgres connection pool.");
+
+    // Create a new database
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+        .await
+        .expect("Failed to create database.");
+
+    // Connect to new database
+    let db_conn_string = format!("{}/{}", db_conn_string, db_name);
+
+    let connection = PgPoolOptions::new()
+        .connect(&db_conn_string)
+        .await
+        .expect("Failed to create Postgres connection pool.");
+
+    // Run migrations against new database
+    sqlx::migrate!()
+        .run(&connection)
+        .await
+        .expect("Failed to migrate the database");
 }
