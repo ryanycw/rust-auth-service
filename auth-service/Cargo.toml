@@ -23,6 +23,7 @@ dotenvy = "0.15.7"
 lazy_static = "1.4.0"
 rand = "0.8.5"
 sqlx = { version = "0.8", features = [ "runtime-tokio-rustls", "postgres", "migrate"] }
+argon2 = { version = "0.5.3", features = ["std"] }
 
 [dev-dependencies]
 fake = "=2.3.0"
