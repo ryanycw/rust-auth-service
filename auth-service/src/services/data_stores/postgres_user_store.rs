@@ -55,8 +55,7 @@ impl UserStore for PostgresUserStore {
         match result {
             Ok(row) => {
                 let email = Email::parse(row.email).map_err(|_| UserStoreError::UnexpectedError)?;
-                let password = Password::parse(row.password_hash)
-                    .map_err(|_| UserStoreError::UnexpectedError)?;
+                let password = Password::from_hash(row.password_hash);
                 Ok(User::new(email, password, row.requires_2fa))
             }
             Err(sqlx::Error::RowNotFound) => Err(UserStoreError::UserNotFound),

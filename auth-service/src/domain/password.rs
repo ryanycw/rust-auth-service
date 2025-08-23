@@ -5,6 +5,9 @@ use validator::validate_length;
 pub struct Password(String);
 
 impl Password {
+    /// Parses a password string into a Password.
+    /// Returns an error if the password is invalid.
+    /// Used for user input validation during signup.
     pub fn parse(s: String) -> Result<Self, String> {
         // Use validator crate for length validation
         if !validate_length(&s, Some(8), None, None) {
@@ -33,6 +36,17 @@ impl Password {
         }
 
         Ok(Password(s))
+    }
+
+    /// Creates a Password from a hash without validation.
+    /// Used for reconstructing user data from storage.
+    pub fn from_hash(hash: String) -> Self {
+        Password(hash)
+    }
+
+    /// Returns the hash of the password.
+    pub fn to_hash(&self) -> String {
+        self.0.clone()
     }
 }
 

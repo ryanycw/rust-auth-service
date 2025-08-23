@@ -63,15 +63,8 @@ pub async fn login(
     // Get user and validate credentials
     let user = {
         let store = state.user_store.read().await;
-        match store.get_user(&email).await {
-            Ok(user) => {
-                // Validate password (using same logic as validate_user)
-                if user.password != password {
-                    None
-                } else {
-                    Some(user)
-                }
-            }
+        match store.validate_user(&email, &password).await {
+            Ok(_) => store.get_user(&email).await.ok(),
             Err(_) => None,
         }
     };
@@ -107,30 +100,36 @@ async fn handle_2fa(
     Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
 ) {
     use crate::domain::data_stores::{LoginAttemptId, TwoFACode};
-    
+
     // Generate a new login attempt ID and 2FA code
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
-    
+
     // Store the 2FA code in the store
     let mut store = state.two_fa_code_store.write().await;
-    if let Err(_) = store.add_code(
-        email.clone(),
-        login_attempt_id.clone(),
-        two_fa_code.clone(),
-    ).await {
+    if let Err(_) = store
+        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
+        .await
+    {
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
 
     // Send 2FA code via email
-    if let Err(_) = state.email_client.send_email(
-        email,
-        "Your 2FA Code",
-        &format!("Your two-factor authentication code is: {}", two_fa_code.as_ref()),
-    ).await {
+    if let Err(_) = state
+        .email_client
+        .send_email(
+            email,
+            "Your 2FA Code",
+            &format!(
+                "Your two-factor authentication code is: {}",
+                two_fa_code.as_ref()
+            ),
+        )
+        .await
+    {
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
-    
+
     (
         jar,
         Ok((
@@ -159,10 +158,7 @@ async fn handle_no_2fa(
     // Return success with updated cookie jar
     (
         jar.add(auth_cookie),
-        Ok((
-            StatusCode::OK,
-            Json(LoginResponse::RegularAuth),
-        )),
+        Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))),
     )
 }
 
