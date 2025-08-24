@@ -6,10 +6,12 @@ use auth_service::{
     ErrorResponse,
 };
 use reqwest::StatusCode;
+use test_macros::with_db_cleanup;
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn login_returns_200_for_valid_credentials() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First create a user
     let email = get_random_email();
@@ -36,9 +38,10 @@ async fn login_returns_200_for_valid_credentials() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let random_email = get_random_email();
 
@@ -70,9 +73,10 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     assert!(!auth_cookie.value().is_empty());
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First create a user with 2FA enabled
     let email = get_random_email();
@@ -107,26 +111,29 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     // Verify that the login_attempt_id is stored in the two_fa_code_store
     let login_attempt_id = json_body.login_attempt_id;
-    let two_fa_code_store = &app.two_fa_code_store;
-    let two_fa_code_store_lock = two_fa_code_store.read().await;
-    
-    // Get the stored code for this email
-    let stored_code = two_fa_code_store_lock
-        .get_code(&Email::parse(email).unwrap())
-        .await
-        .expect("2FA code should be stored for this email");
-    
-    // Verify the login_attempt_id matches
-    assert_eq!(stored_code.0.as_ref(), login_attempt_id);
-    
-    // Verify that a 6-digit code was generated (not checking exact value since it's random)
-    assert_eq!(stored_code.1.as_ref().len(), 6);
-    assert!(stored_code.1.as_ref().chars().all(|c| c.is_ascii_digit()));
+    {
+        let two_fa_code_store = &app.two_fa_code_store;
+        let two_fa_code_store_lock = two_fa_code_store.read().await;
+        
+        // Get the stored code for this email
+        let stored_code = two_fa_code_store_lock
+            .get_code(&Email::parse(email).unwrap())
+            .await
+            .expect("2FA code should be stored for this email");
+        
+        // Verify the login_attempt_id matches
+        assert_eq!(stored_code.0.as_ref(), login_attempt_id);
+        
+        // Verify that a 6-digit code was generated (not checking exact value since it's random)
+        assert_eq!(stored_code.1.as_ref().len(), 6);
+        assert!(stored_code.1.as_ref().chars().all(|c| c.is_ascii_digit()));
+    }
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Test with invalid email format
     let login_body = LoginRequest {
@@ -142,9 +149,10 @@ async fn should_return_400_if_invalid_input() {
     assert_eq!(error_response.error, "Invalid input");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First create a user
     let email = get_random_email();
@@ -174,9 +182,10 @@ async fn should_return_401_if_incorrect_credentials() {
     assert_eq!(error_response.error, "Incorrect credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_422_if_malformed_credentials() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Test with malformed JSON (missing required fields)
     let malformed_body = r#"{"email": "test@example.com"}"#; // Missing password

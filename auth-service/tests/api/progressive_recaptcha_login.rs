@@ -1,10 +1,12 @@
 use crate::helpers::{get_random_email, TestApp};
 use auth_service::routes::{LoginRequest, LoginResponse, SignupRequest};
 use reqwest::StatusCode;
+use test_macros::with_db_cleanup;
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_allow_login_without_recaptcha_for_first_attempts() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -37,9 +39,10 @@ async fn should_allow_login_without_recaptcha_for_first_attempts() {
     assert_eq!(login_response, LoginResponse::RegularAuth);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_require_recaptcha_after_three_failed_attempts() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -84,9 +87,10 @@ async fn should_require_recaptcha_after_three_failed_attempts() {
     assert_eq!(login_response, LoginResponse::RecaptchaRequired);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -122,9 +126,10 @@ async fn should_allow_login_with_valid_recaptcha_after_failed_attempts() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_reject_login_with_invalid_recaptcha() {
-    let app = TestApp::new(false).await;
+    let mut app = TestApp::new(false).await;
 
     // Create a user
     let email = get_random_email();
@@ -160,9 +165,10 @@ async fn should_reject_login_with_invalid_recaptcha() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_reset_attempts_after_successful_login() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create a user
     let email = get_random_email();
@@ -208,9 +214,10 @@ async fn should_reset_attempts_after_successful_login() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_track_attempts_separately_for_different_emails() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create two users
     let email1 = get_random_email();

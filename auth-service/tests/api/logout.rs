@@ -1,11 +1,13 @@
 use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
 use reqwest::{cookie::CookieStore, StatusCode, Url};
+use test_macros::with_db_cleanup;
 
 use crate::helpers::{get_random_email, TestApp};
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First create and login a user to get a valid JWT cookie
     let email = get_random_email();
@@ -63,9 +65,10 @@ async fn should_return_200_if_valid_jwt_cookie() {
     );
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First create and login a user to get a valid JWT cookie
     let email = get_random_email();
@@ -103,9 +106,10 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
     assert_eq!(error_response.error, "Missing token");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_jwt_cookie_missing() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let response = app.post_logout().await;
 
@@ -118,9 +122,10 @@ async fn should_return_400_if_jwt_cookie_missing() {
     assert_eq!(error_response.error, "Missing token");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // add invalid cookie
     app.cookie_jar.add_cookie_str(

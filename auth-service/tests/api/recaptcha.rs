@@ -1,9 +1,11 @@
 use crate::helpers::{get_random_email, TestApp};
 use reqwest::StatusCode;
+use test_macros::with_db_cleanup;
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_recaptcha_verification_fails() {
-    let app = TestApp::new(false).await;
+    let mut app = TestApp::new(false).await;
 
     let response = app
         .post_signup(&serde_json::json!({
@@ -24,9 +26,10 @@ async fn should_return_400_if_recaptcha_verification_fails() {
     assert_eq!(error_response.error, "Invalid credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_recaptcha_token_is_empty() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let response = app
         .post_signup(&serde_json::json!({
@@ -47,9 +50,10 @@ async fn should_return_400_if_recaptcha_token_is_empty() {
     assert_eq!(error_response.error, "Invalid credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_422_if_recaptcha_token_is_missing() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let response = app
         .post_signup(&serde_json::json!({

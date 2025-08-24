@@ -6,13 +6,15 @@ use auth_service::{
 };
 use reqwest::StatusCode;
 use serde_json::json;
+use test_macros::with_db_cleanup;
 
 use crate::helpers::{get_random_email, TestApp};
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_200_if_correct_code() {
     // Make sure to assert the auth cookie gets set
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
     
     // Store a code in the 2FA store
@@ -54,9 +56,10 @@ async fn should_return_200_if_correct_code() {
     }
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Test with invalid email
     let invalid_request = Verify2FARequest {
@@ -76,9 +79,10 @@ async fn should_return_400_if_invalid_input() {
     assert_eq!(body.error, "Invalid input");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
 
     // Store a code in the 2FA store
@@ -147,9 +151,10 @@ async fn should_return_401_if_incorrect_credentials() {
     assert_eq!(body.error, "Incorrect credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_401_if_same_code_twice() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
     
     // Store a code in the 2FA store
@@ -198,10 +203,11 @@ async fn should_return_401_if_same_code_twice() {
     assert_eq!(body.error, "Incorrect credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_401_if_old_code() {
     // Call login twice. Then, attempt to call verify-fa with the 2FA code from the first login request. This should fail.
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
 
     // Add first 2FA code
@@ -256,9 +262,10 @@ async fn should_return_401_if_old_code() {
     assert_eq!(body.error, "Incorrect credentials");
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Test with missing fields
     let malformed_request = json!({

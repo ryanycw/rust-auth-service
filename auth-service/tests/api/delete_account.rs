@@ -1,10 +1,12 @@
 use crate::helpers::{get_random_email, TestApp};
 use auth_service::routes::{DeleteAccountRequest, SignupRequest};
 use reqwest::StatusCode;
+use test_macros::with_db_cleanup;
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_delete_account_with_valid_credentials() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First, create a user
     let email = get_random_email();
@@ -41,9 +43,10 @@ async fn should_delete_account_with_valid_credentials() {
     assert_eq!(signup_again_response.status(), StatusCode::CREATED);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_fail_to_delete_account_with_wrong_password() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // First, create a user
     let email = get_random_email();
@@ -73,9 +76,10 @@ async fn should_fail_to_delete_account_with_wrong_password() {
     assert_eq!(signup_again_response.status(), StatusCode::CONFLICT);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_fail_to_delete_non_existent_account() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let delete_body = DeleteAccountRequest {
         email: get_random_email(),
@@ -86,9 +90,10 @@ async fn should_fail_to_delete_non_existent_account() {
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_fail_to_delete_account_with_invalid_email() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let delete_body = DeleteAccountRequest {
         email: "invalid-email".to_string(),
@@ -99,9 +104,10 @@ async fn should_fail_to_delete_account_with_invalid_email() {
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_fail_to_delete_account_with_invalid_password() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     // Create a user first
     let email = get_random_email();
