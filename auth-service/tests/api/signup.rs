@@ -1,10 +1,12 @@
 use auth_service::{routes::SignupResponse, ErrorResponse};
+use test_macros::with_db_cleanup;
 
 use crate::helpers::{get_random_email, TestApp};
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_201_if_valid_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let response = app
         .post_signup(&serde_json::json!({
@@ -30,9 +32,10 @@ async fn should_return_201_if_valid_input() {
     );
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let test_cases = [
         // Empty email
@@ -106,9 +109,10 @@ async fn should_return_400_if_invalid_input() {
     }
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_409_if_email_already_exists() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let email = get_random_email();
     let signup_body = serde_json::json!({
@@ -136,9 +140,10 @@ async fn should_return_409_if_email_already_exists() {
     );
 }
 
+#[with_db_cleanup]
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new(true).await;
+    let mut app = TestApp::new(true).await;
 
     let random_email = get_random_email();
 
