@@ -42,6 +42,7 @@ jobs:
         run: |
           export JWT_SECRET=secret
           export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+          export SQLX_OFFLINE=true
           cargo build --verbose
           cargo test --verbose
 
