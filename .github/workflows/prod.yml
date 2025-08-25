@@ -99,6 +99,7 @@ jobs:
           script: |
             cd ~
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             export DATABASE_URL=${{ secrets.DATABASE_URL }}
             docker compose down
             docker compose pull
