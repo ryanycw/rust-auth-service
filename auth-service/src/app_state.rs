@@ -5,7 +5,7 @@ use crate::services::{
     postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, RecaptchaService,
 };
 
-use crate::domain::{BannedTokenStore, TwoFACodeStore, EmailClient};
+use crate::domain::{BannedTokenStore, EmailClient, TwoFACodeStore};
 
 // Using type aliases to improve readability!
 pub type UserStoreType = Arc<RwLock<PostgresUserStore>>;
@@ -31,7 +31,7 @@ impl AppState {
         login_attempt_store: LoginAttemptStoreType,
         recaptcha_service: RecaptchaServiceType,
         banned_token_store: BannedTokenStoreType,
-        two_fa_code_store: TwoFACodeStoreType, 
+        two_fa_code_store: TwoFACodeStoreType,
         email_client: EmailClientType,
     ) -> Self {
         Self {

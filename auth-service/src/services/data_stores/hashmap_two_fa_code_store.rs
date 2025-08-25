@@ -52,7 +52,9 @@ mod tests {
         let code = TwoFACode::default();
 
         // Add code
-        let result = store.add_code(email.clone(), login_attempt_id.clone(), code.clone()).await;
+        let result = store
+            .add_code(email.clone(), login_attempt_id.clone(), code.clone())
+            .await;
         assert!(result.is_ok());
 
         // Get code
@@ -70,7 +72,10 @@ mod tests {
 
         let result = store.get_code(&email).await;
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
+        assert_eq!(
+            result.unwrap_err(),
+            TwoFACodeStoreError::LoginAttemptIdNotFound
+        );
     }
 
     #[tokio::test]
@@ -81,7 +86,10 @@ mod tests {
         let code = TwoFACode::default();
 
         // Add code
-        store.add_code(email.clone(), login_attempt_id, code).await.unwrap();
+        store
+            .add_code(email.clone(), login_attempt_id, code)
+            .await
+            .unwrap();
 
         // Remove code
         let result = store.remove_code(&email).await;
@@ -90,6 +98,9 @@ mod tests {
         // Verify code is removed
         let result = store.get_code(&email).await;
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
+        assert_eq!(
+            result.unwrap_err(),
+            TwoFACodeStoreError::LoginAttemptIdNotFound
+        );
     }
 }

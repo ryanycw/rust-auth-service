@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use auth_service::services::{
     postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, HashmapTwoFACodeStore,
-    RedisBannedTokenStore, MockEmailClient, MockRecaptchaService,
+    MockEmailClient, MockRecaptchaService, RedisBannedTokenStore,
 };
 use auth_service::utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME};
 use auth_service::{app_state::AppState, Application};
@@ -17,7 +17,9 @@ async fn main() {
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
     let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(RwLock::new(redis_conn)))));
+    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
+        RwLock::new(redis_conn),
+    ))));
     let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
     let email_client = Arc::new(MockEmailClient);
 

@@ -16,11 +16,11 @@ async fn should_return_200_if_correct_code() {
     // Make sure to assert the auth cookie gets set
     let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
-    
+
     // Store a code in the 2FA store
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
-    
+
     {
         let mut store = app.two_fa_code_store.write().await;
         store
@@ -28,31 +28,34 @@ async fn should_return_200_if_correct_code() {
             .await
             .expect("Failed to add 2FA code");
     }
-    
+
     // Send correct 2FA request
     let correct_request = Verify2FARequest {
         email: email.as_ref().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
-    
+
     let response = app.post_verify_2fa(&correct_request).await;
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     // Verify auth cookie was set
     let cookies = response.cookies();
     let auth_cookie = cookies
         .into_iter()
         .find(|c| c.name() == JWT_COOKIE_NAME)
         .expect("No auth cookie found");
-    
+
     assert!(!auth_cookie.value().is_empty());
-    
+
     // Verify the 2FA code was removed from the store
     {
         let store = app.two_fa_code_store.read().await;
         let result = store.get_code(&email).await;
-        assert!(result.is_err(), "2FA code should have been removed after successful authentication");
+        assert!(
+            result.is_err(),
+            "2FA code should have been removed after successful authentication"
+        );
     }
 }
 
@@ -156,11 +159,11 @@ async fn should_return_401_if_incorrect_credentials() {
 async fn should_return_401_if_same_code_twice() {
     let mut app = TestApp::new(true).await;
     let email = Email::parse(get_random_email()).unwrap();
-    
+
     // Store a code in the 2FA store
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
-    
+
     {
         let mut store = app.two_fa_code_store.write().await;
         store
@@ -168,34 +171,34 @@ async fn should_return_401_if_same_code_twice() {
             .await
             .expect("Failed to add 2FA code");
     }
-    
+
     // First request with correct code - should succeed
     let correct_request = Verify2FARequest {
         email: email.as_ref().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
-    
+
     let response = app.post_verify_2fa(&correct_request).await;
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     // Verify the code was removed
     {
         let store = app.two_fa_code_store.read().await;
         let result = store.get_code(&email).await;
         assert!(result.is_err(), "2FA code should have been removed");
     }
-    
+
     // Second request with the same code - should fail
     let same_request = Verify2FARequest {
         email: email.as_ref().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
-    
+
     let response = app.post_verify_2fa(&same_request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    
+
     let body = response
         .json::<ErrorResponse>()
         .await

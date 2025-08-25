@@ -114,16 +114,16 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     {
         let two_fa_code_store = &app.two_fa_code_store;
         let two_fa_code_store_lock = two_fa_code_store.read().await;
-        
+
         // Get the stored code for this email
         let stored_code = two_fa_code_store_lock
             .get_code(&Email::parse(email).unwrap())
             .await
             .expect("2FA code should be stored for this email");
-        
+
         // Verify the login_attempt_id matches
         assert_eq!(stored_code.0.as_ref(), login_attempt_id);
-        
+
         // Verify that a 6-digit code was generated (not checking exact value since it's random)
         assert_eq!(stored_code.1.as_ref().len(), 6);
         assert!(stored_code.1.as_ref().chars().all(|c| c.is_ascii_digit()));

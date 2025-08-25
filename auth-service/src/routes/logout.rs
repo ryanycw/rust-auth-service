@@ -37,10 +37,8 @@ pub async fn logout(
     }
 
     // Remove the JWT cookie by creating a removal cookie
-    let removal_cookie = Cookie::build((JWT_COOKIE_NAME, ""))
-        .path("/")
-        .build();
-    
+    let removal_cookie = Cookie::build((JWT_COOKIE_NAME, "")).path("/").build();
+
     let jar = jar.remove(removal_cookie);
 
     (jar, Ok(StatusCode::OK))

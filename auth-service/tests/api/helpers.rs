@@ -6,7 +6,7 @@ use auth_service::{
     get_postgres_pool, get_redis_client,
     services::{
         postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, HashmapTwoFACodeStore,
-        RedisBannedTokenStore, MockEmailClient, MockRecaptchaService,
+        MockEmailClient, MockRecaptchaService, RedisBannedTokenStore,
     },
     utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOSTNAME},
     Application,
@@ -34,7 +34,9 @@ impl TestApp {
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(RwLock::new(redis_conn)))));
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
+            RwLock::new(redis_conn),
+        ))));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         let email_client = Arc::new(MockEmailClient);
@@ -184,7 +186,7 @@ async fn configure_postgresql() -> (PgPool, String) {
     let pool = get_postgres_pool(&postgresql_conn_url_with_db)
         .await
         .expect("Failed to create Postgres connection pool!");
-    
+
     (pool, db_name)
 }
 
