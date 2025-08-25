@@ -97,7 +97,7 @@ jobs:
           script: |
             cd ~
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export DOMAIN=${{ vars.DOMAIN }}
+            export DATABASE_URL=${{ secrets.DATABASE_URL }}
             docker compose down
             docker compose pull
 
