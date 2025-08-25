@@ -7,6 +7,7 @@ lazy_static! {
     pub static ref JWT_SECRET: String = set_token();
     pub static ref CORS_ALLOWED_ORIGINS: String = set_cors_origins();
     pub static ref DATABASE_URL: String = set_database_url();
+    pub static ref REDIS_HOST_NAME: String = set_redis_host();
 }
 
 fn set_token() -> String {
@@ -33,13 +34,21 @@ fn set_database_url() -> String {
     }
     database_url
 }
+
+fn set_redis_host() -> String {
+    dotenv().ok();
+    std_env::var(env::REDIS_HOST_NAME_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned())
+}
+
 pub mod env {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const CORS_ALLOWED_ORIGINS_ENV_VAR: &str = "CORS_ALLOWED_ORIGINS";
     pub const DOMAIN_ENV_VAR: &str = "DATABASE_URL";
+    pub const REDIS_HOST_NAME_ENV_VAR: &str = "REDIS_HOST_NAME";
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
+pub const DEFAULT_REDIS_HOSTNAME: &str = "127.0.0.1";
 
 pub mod prod {
     pub const APP_ADDRESS: &str = "0.0.0.0:3000";

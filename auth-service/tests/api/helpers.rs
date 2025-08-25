@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
-    get_postgres_pool,
+    get_postgres_pool, get_redis_client,
     services::{
         postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, HashmapTwoFACodeStore,
-        HashsetBannedTokenStore, MockEmailClient, MockRecaptchaService,
+        RedisBannedTokenStore, MockEmailClient, MockRecaptchaService,
     },
-    utils::constants::{test, DATABASE_URL},
+    utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOSTNAME},
     Application,
 };
 use reqwest::cookie::Jar;
@@ -30,10 +30,11 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new(recaptcha_success: bool) -> Self {
         let (pg_pool, db_name) = configure_postgresql().await;
+        let redis_conn = configure_redis();
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(RwLock::new(redis_conn)))));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         let email_client = Arc::new(MockEmailClient);
@@ -247,4 +248,11 @@ async fn delete_database(db_name: &str) {
         .execute(format!(r#"DROP DATABASE "{}";"#, db_name).as_str())
         .await
         .expect("Failed to drop the database.");
+}
+
+fn configure_redis() -> redis::Connection {
+    get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
+        .expect("Failed to get Redis client")
+        .get_connection()
+        .expect("Failed to get Redis connection")
 }
