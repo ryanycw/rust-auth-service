@@ -3,8 +3,8 @@ use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::email::Email;
 use crate::app_state::BannedTokenStoreType;
+use crate::domain::email::Email;
 
 use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
 
@@ -109,12 +109,26 @@ pub struct Claims {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::HashsetBannedTokenStore;
+    use crate::{
+        get_redis_client, services::RedisBannedTokenStore, utils::constants::DEFAULT_REDIS_HOSTNAME,
+    };
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     fn create_test_banned_token_store() -> BannedTokenStoreType {
-        Arc::new(RwLock::new(HashsetBannedTokenStore::default()))
+        let redis_client = get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
+            .expect("Failed to get Redis client");
+        let mut conn = redis_client
+            .get_connection()
+            .expect("Failed to get Redis connection");
+
+        // Clean the Redis DB before each test
+        let _: () = redis::cmd("FLUSHDB")
+            .query(&mut conn)
+            .expect("Failed to flush Redis DB");
+
+        let conn = Arc::new(RwLock::new(conn));
+        Arc::new(RwLock::new(RedisBannedTokenStore::new(conn)))
     }
 
     #[tokio::test]
@@ -151,7 +165,7 @@ mod tests {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = create_test_banned_token_store();
-        
+
         let result = validate_token(&token, &banned_token_store).await.unwrap();
         assert_eq!(result.sub, "test@example.com");
 
@@ -167,7 +181,7 @@ mod tests {
     async fn test_validate_token_with_invalid_token() {
         let token = "invalid_token".to_owned();
         let banned_token_store = create_test_banned_token_store();
-        
+
         let result = validate_token(&token, &banned_token_store).await;
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -181,7 +195,7 @@ mod tests {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = create_test_banned_token_store();
-        
+
         // First ban the token
         banned_token_store
             .write()
@@ -189,7 +203,7 @@ mod tests {
             .store_token(token.clone())
             .await
             .unwrap();
-        
+
         // Then try to validate it
         let result = validate_token(&token, &banned_token_store).await;
         assert!(result.is_err());
@@ -206,7 +220,7 @@ mod tests {
         let token1 = generate_auth_token(&email1).unwrap();
         let token2 = generate_auth_token(&email2).unwrap();
         let banned_token_store = create_test_banned_token_store();
-        
+
         // Ban only token1
         banned_token_store
             .write()
@@ -214,11 +228,11 @@ mod tests {
             .store_token(token1.clone())
             .await
             .unwrap();
-        
+
         // token2 should still be valid
         let result = validate_token(&token2, &banned_token_store).await;
         assert!(result.is_ok());
-        
+
         // token1 should be banned
         let result = validate_token(&token1, &banned_token_store).await;
         assert!(result.is_err());

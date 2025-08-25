@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub struct RedisBannedTokenStore {
-    conn: Arc<RwLock<Connection>>,
+    pub conn: Arc<RwLock<Connection>>,
 }
 
 impl RedisBannedTokenStore {
@@ -23,7 +23,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     async fn store_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
         let key = get_key(&token);
         let ttl = TOKEN_TTL_SECONDS as u64;
-        
+
         let mut conn = self.conn.write().await;
         conn.set_ex(&key, true, ttl)
             .map_err(|_| BannedTokenStoreError::UnexpectedError)
@@ -31,7 +31,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
 
     async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
         let key = get_key(token);
-        
+
         let mut conn = self.conn.write().await;
         conn.exists(&key)
             .map_err(|_| BannedTokenStoreError::UnexpectedError)
@@ -109,7 +109,9 @@ mod tests {
 
         // Clean up
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&[get_key(&token1), get_key(&token2), get_key(&token3)]).unwrap();
+        let _: () = conn
+            .del(&[get_key(&token1), get_key(&token2), get_key(&token3)])
+            .unwrap();
     }
 
     #[tokio::test]
