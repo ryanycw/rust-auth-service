@@ -1,0 +1,25 @@
+# Default configuration for auth-service
+# These values are used as base configuration and can be overridden
+
+[server]
+host = "127.0.0.1"
+port = 0
+
+[database]
+host = "localhost"
+port = 5432
+username = "postgres"
+password = "password"  # Will be overridden by APP_POSTGRES__PASSWORD
+
+[redis]
+# Default Redis hostname
+hostname = "127.0.0.1"
+
+[auth]
+# JWT secret - MUST be set via environment variable in production
+jwt_secret = "dev-secret-key-change-in-production"
+jwt_cookie_name = "jwt"
+
+[cors]
+# Allowed CORS origins for development
+allowed_origins = "http://localhost"

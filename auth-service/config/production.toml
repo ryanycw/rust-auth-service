@@ -1,0 +1,6 @@
+# Production configuration overrides
+# This file contains production-specific settings
+
+[server]
+host = "0.0.0.0"
+port = 3000
