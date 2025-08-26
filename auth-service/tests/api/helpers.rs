@@ -34,13 +34,16 @@ impl TestApp {
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
-            RwLock::new(redis_conn),
-        ))));
+        let test_id = uuid::Uuid::new_v4().to_string();
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(
+            Arc::new(RwLock::new(redis_conn)),
+            format!("integration_test_{}:", test_id)
+        )));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
-        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(Arc::new(
-            RwLock::new(configure_redis()),
-        ))));
+        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_prefix(
+            Arc::new(RwLock::new(configure_redis())),
+            format!("integration_test_{}:", test_id)
+        )));
         let email_client = Arc::new(MockEmailClient);
 
         let app_state = AppState::new(

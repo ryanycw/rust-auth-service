@@ -11,11 +11,16 @@ use crate::domain::{
 
 pub struct RedisTwoFACodeStore {
     conn: Arc<RwLock<Connection>>,
+    key_prefix: Option<String>,
 }
 
 impl RedisTwoFACodeStore {
     pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
-        Self { conn }
+        Self { conn, key_prefix: None }
+    }
+
+    pub fn new_with_prefix(conn: Arc<RwLock<Connection>>, prefix: String) -> Self {
+        Self { conn, key_prefix: Some(prefix) }
     }
 }
 
@@ -27,7 +32,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         login_attempt_id: LoginAttemptId,
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError> {
-        let key = get_key(&email);
+        let key = self.get_key(&email);
         let two_fa_tuple = TwoFATuple(login_attempt_id.as_ref().to_string(), code.as_ref().to_string());
         
         let serialized_tuple = serde_json::to_string(&two_fa_tuple)
@@ -39,7 +44,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     }
 
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError> {
-        let key = get_key(email);
+        let key = self.get_key(email);
         let mut conn = self.conn.write().await;
         conn.del(&key)
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)
@@ -49,7 +54,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         &self,
         email: &Email,
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
-        let key = get_key(email);
+        let key = self.get_key(email);
         let mut conn = self.conn.write().await;
         
         let serialized_tuple: String = conn.get(&key)
@@ -74,8 +79,13 @@ struct TwoFATuple(pub String, pub String);
 const TEN_MINUTES_IN_SECONDS: u64 = 600;
 const TWO_FA_CODE_PREFIX: &str = "two_fa_code:";
 
-fn get_key(email: &Email) -> String {
-    format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref())
+impl RedisTwoFACodeStore {
+    fn get_key(&self, email: &Email) -> String {
+        match &self.key_prefix {
+            Some(prefix) => format!("{}{}{}", prefix, TWO_FA_CODE_PREFIX, email.as_ref()),
+            None => format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -88,19 +98,19 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    async fn create_test_store() -> RedisTwoFACodeStore {
+    async fn create_test_store(test_prefix: &str) -> RedisTwoFACodeStore {
         let redis_client = get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
             .expect("Failed to get Redis client");
         let conn = redis_client
             .get_connection()
             .expect("Failed to get Redis connection");
         let conn = Arc::new(RwLock::new(conn));
-        RedisTwoFACodeStore::new(conn)
+        RedisTwoFACodeStore::new_with_prefix(conn, format!("test_{}:", test_prefix))
     }
 
     #[tokio::test]
     async fn test_add_and_get_code() {
-        let mut store = create_test_store().await;
+        let mut store = create_test_store("add_and_get_code").await;
         let email = Email::parse("test_add_get@example.com".to_string()).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
@@ -119,14 +129,14 @@ mod tests {
         assert_eq!(retrieved_code, code);
 
         // Clean up
-        let key = get_key(&email);
+        let key = store.get_key(&email);
         let mut conn = store.conn.write().await;
         let _: () = conn.del(&key).unwrap();
     }
 
     #[tokio::test]
     async fn test_get_nonexistent_code() {
-        let store = create_test_store().await;
+        let store = create_test_store("get_nonexistent_code").await;
         let email = Email::parse("nonexistent_get@example.com".to_string()).unwrap();
 
         let result = store.get_code(&email).await;
@@ -139,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_code() {
-        let mut store = create_test_store().await;
+        let mut store = create_test_store("remove_code").await;
         let email = Email::parse("test_remove@example.com".to_string()).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
@@ -165,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_overwrite_existing_code() {
-        let mut store = create_test_store().await;
+        let mut store = create_test_store("overwrite_existing_code").await;
         let email = Email::parse("test_overwrite@example.com".to_string()).unwrap();
         let login_attempt_id1 = LoginAttemptId::default();
         let code1 = TwoFACode::default();
@@ -194,14 +204,14 @@ mod tests {
         assert_ne!(retrieved_code, code1);
 
         // Clean up
-        let key = get_key(&email);
+        let key = store.get_key(&email);
         let mut conn = store.conn.write().await;
         let _: () = conn.del(&key).unwrap();
     }
 
     #[tokio::test]
     async fn test_multiple_emails() {
-        let mut store = create_test_store().await;
+        let mut store = create_test_store("multiple_emails").await;
         let email1 = Email::parse("test_multi1@example.com".to_string()).unwrap();
         let email2 = Email::parse("test_multi2@example.com".to_string()).unwrap();
         let login_attempt_id1 = LoginAttemptId::default();
@@ -234,12 +244,12 @@ mod tests {
 
         // Clean up
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&[get_key(&email1), get_key(&email2)]).unwrap();
+        let _: () = conn.del(&[store.get_key(&email1), store.get_key(&email2)]).unwrap();
     }
 
     #[tokio::test]
     async fn test_remove_nonexistent_code() {
-        let mut store = create_test_store().await;
+        let mut store = create_test_store("remove_nonexistent_code").await;
         let email = Email::parse("nonexistent_remove@example.com".to_string()).unwrap();
 
         // Should not error when removing non-existent code
