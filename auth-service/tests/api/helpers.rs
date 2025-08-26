@@ -5,7 +5,7 @@ use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
     get_postgres_pool, get_redis_client,
     services::{
-        postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, HashmapTwoFACodeStore,
+        postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, RedisTwoFACodeStore,
         MockEmailClient, MockRecaptchaService, RedisBannedTokenStore,
     },
     utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOSTNAME},
@@ -38,7 +38,9 @@ impl TestApp {
             RwLock::new(redis_conn),
         ))));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
-        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(Arc::new(
+            RwLock::new(configure_redis()),
+        ))));
         let email_client = Arc::new(MockEmailClient);
 
         let app_state = AppState::new(
