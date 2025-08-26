@@ -1,4 +1,4 @@
-use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
+use auth_service::ErrorResponse;
 use reqwest::{cookie::CookieStore, StatusCode};
 use test_macros::with_db_cleanup;
 
@@ -38,7 +38,10 @@ async fn should_return_200_valid_token() {
     let cookie_str = cookies.to_str().unwrap();
     let jwt_token = cookie_str
         .split(';')
-        .find(|s| s.trim().starts_with(&format!("{}=", JWT_COOKIE_NAME)))
+        .find(|s| {
+            s.trim()
+                .starts_with(&format!("{}=", app.settings.auth.jwt_cookie_name))
+        })
         .unwrap()
         .split('=')
         .nth(1)
@@ -104,7 +107,7 @@ async fn should_return_401_if_banned_token() {
     let cookie_str = cookies.to_str().unwrap();
     let jwt_token = cookie_str
         .split(';')
-        .find(|s| s.trim().starts_with(&format!("{}=", JWT_COOKIE_NAME)))
+        .find(|s| s.trim().starts_with("jwt="))
         .unwrap()
         .split('=')
         .nth(1)

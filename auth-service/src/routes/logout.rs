@@ -1,11 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie::Cookie, CookieJar};
 
-use crate::{
-    domain::AuthAPIError,
-    utils::{auth::validate_token, constants::JWT_COOKIE_NAME},
-    AppState,
-};
+use crate::{domain::AuthAPIError, utils::auth::validate_token, AppState};
 
 pub async fn logout(
     State(app_state): State<AppState>,
@@ -13,14 +9,20 @@ pub async fn logout(
 ) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
     // Retrieve JWT cookie from the `CookieJar`
     // Return AuthAPIError::MissingToken is the cookie is not found
-    let cookie = match jar.get(JWT_COOKIE_NAME) {
+    let cookie = match jar.get(&app_state.settings.auth.jwt_cookie_name) {
         Some(cookie) => cookie,
         None => return (jar, Err(AuthAPIError::MissingToken)),
     };
 
     let token = cookie.value();
 
-    match validate_token(token, &app_state.banned_token_store).await {
+    match validate_token(
+        token,
+        &app_state.banned_token_store,
+        &app_state.settings.auth,
+    )
+    .await
+    {
         Ok(_) => (),
         Err(_) => return (jar, Err(AuthAPIError::InvalidToken)),
     }
@@ -37,7 +39,9 @@ pub async fn logout(
     }
 
     // Remove the JWT cookie by creating a removal cookie
-    let removal_cookie = Cookie::build((JWT_COOKIE_NAME, "")).path("/").build();
+    let removal_cookie = Cookie::build((app_state.settings.auth.jwt_cookie_name.clone(), ""))
+        .path("/")
+        .build();
 
     let jar = jar.remove(removal_cookie);
 

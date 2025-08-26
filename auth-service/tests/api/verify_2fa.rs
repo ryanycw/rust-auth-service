@@ -1,7 +1,6 @@
 use auth_service::{
     domain::{Email, LoginAttemptId, TwoFACode},
     routes::Verify2FARequest,
-    utils::constants::JWT_COOKIE_NAME,
     ErrorResponse,
 };
 use reqwest::StatusCode;
@@ -43,7 +42,7 @@ async fn should_return_200_if_correct_code() {
     let cookies = response.cookies();
     let auth_cookie = cookies
         .into_iter()
-        .find(|c| c.name() == JWT_COOKIE_NAME)
+        .find(|c| c.name() == &app.settings.auth.jwt_cookie_name)
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());

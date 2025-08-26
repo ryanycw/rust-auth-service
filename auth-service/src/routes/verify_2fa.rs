@@ -58,7 +58,7 @@ pub async fn verify_2fa(
     }
 
     // Generate auth cookie for successful 2FA verification
-    let auth_cookie = match generate_auth_cookie(&email) {
+    let auth_cookie = match generate_auth_cookie(&email, &state.settings.auth) {
         Ok(cookie) => cookie,
         Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
     };

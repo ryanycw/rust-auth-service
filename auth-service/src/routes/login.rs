@@ -87,7 +87,7 @@ pub async fn login(
     // Handle request based on user's 2FA configuration
     match user.requires_2fa {
         true => handle_2fa(&user.email, jar, state).await,
-        false => handle_no_2fa(&user.email, jar).await,
+        false => handle_no_2fa(&user.email, jar, &state.settings.auth).await,
     }
 }
 
@@ -145,12 +145,13 @@ async fn handle_2fa(
 async fn handle_no_2fa(
     email: &Email,
     jar: CookieJar,
+    auth_config: &crate::config::AuthConfig,
 ) -> (
     CookieJar,
     Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
 ) {
     // Generate auth cookie for successful login
-    let auth_cookie = match generate_auth_cookie(email) {
+    let auth_cookie = match generate_auth_cookie(email, auth_config) {
         Ok(cookie) => cookie,
         Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
     };

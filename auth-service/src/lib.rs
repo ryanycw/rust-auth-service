@@ -6,10 +6,12 @@ use std::error::Error;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 pub use crate::app_state::AppState;
+pub use crate::config::Settings;
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
 
 pub mod app_state;
+pub mod config;
 pub mod domain;
 pub mod routes;
 pub mod services;
@@ -33,10 +35,11 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
-        // Parse CORS allowed origins from environment variable
-        let cors_origins = crate::utils::constants::CORS_ALLOWED_ORIGINS.clone();
-
+    pub async fn build(
+        app_state: AppState,
+        address: &str,
+        cors_origins: &str,
+    ) -> Result<Self, Box<dyn Error>> {
         // Parse comma-separated origins
         let origins: Vec<HeaderValue> = cors_origins
             .split(',')

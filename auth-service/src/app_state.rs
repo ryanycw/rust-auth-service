@@ -5,6 +5,7 @@ use crate::services::{
     postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, RecaptchaService,
 };
 
+use crate::config::Settings;
 use crate::domain::{BannedTokenStore, EmailClient, TwoFACodeStore};
 
 // Using type aliases to improve readability!
@@ -23,6 +24,7 @@ pub struct AppState {
     pub banned_token_store: BannedTokenStoreType,
     pub two_fa_code_store: TwoFACodeStoreType,
     pub email_client: EmailClientType,
+    pub settings: Settings,
 }
 
 impl AppState {
@@ -33,6 +35,7 @@ impl AppState {
         banned_token_store: BannedTokenStoreType,
         two_fa_code_store: TwoFACodeStoreType,
         email_client: EmailClientType,
+        settings: Settings,
     ) -> Self {
         Self {
             user_store,
@@ -41,6 +44,7 @@ impl AppState {
             banned_token_store,
             two_fa_code_store,
             email_client,
+            settings,
         }
     }
 }

@@ -4,19 +4,24 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::BannedTokenStoreType;
+use crate::config::AuthConfig;
 use crate::domain::email::Email;
 
-use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
-
 // Create cookie with a new JWT auth token
-pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
-    let token = generate_auth_token(email)?;
-    Ok(create_auth_cookie(token))
+pub fn generate_auth_cookie(
+    email: &Email,
+    auth_config: &AuthConfig,
+) -> Result<Cookie<'static>, GenerateTokenError> {
+    let token = generate_auth_token(email, auth_config)?;
+    Ok(create_auth_cookie(
+        token,
+        auth_config.jwt_cookie_name.clone(),
+    ))
 }
 
 // Create cookie and set the value to the passed-in token string
-fn create_auth_cookie(token: String) -> Cookie<'static> {
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token))
+fn create_auth_cookie(token: String, cookie_name: String) -> Cookie<'static> {
+    let cookie = Cookie::build((cookie_name, token))
         .path("/") // apple cookie to all URLs on the server
         .http_only(true) // prevent JavaScript from accessing the cookie
         .same_site(SameSite::Lax) // send cookie with "same-site" requests, and with "cross-site" top-level navigations.
@@ -35,7 +40,10 @@ pub enum GenerateTokenError {
 pub const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
 
 // Create JWT auth token
-fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
+fn generate_auth_token(
+    email: &Email,
+    auth_config: &AuthConfig,
+) -> Result<String, GenerateTokenError> {
     let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
         .ok_or(GenerateTokenError::UnexpectedError)?;
 
@@ -54,13 +62,14 @@ fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
 
     let claims = Claims { sub, exp };
 
-    create_token(&claims).map_err(GenerateTokenError::TokenError)
+    create_token(&claims, auth_config).map_err(GenerateTokenError::TokenError)
 }
 
 // Check if JWT auth token is valid by decoding it using the JWT secret
 pub async fn validate_token(
     token: &str,
     banned_token_store: &BannedTokenStoreType,
+    auth_config: &AuthConfig,
 ) -> Result<Claims, ValidateTokenError> {
     // Check if token is banned first
     let is_banned = banned_token_store
@@ -77,7 +86,7 @@ pub async fn validate_token(
     // Validate token signature and expiration
     decode::<Claims>(
         token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &DecodingKey::from_secret(auth_config.jwt_secret.as_bytes()),
         &Validation::default(),
     )
     .map(|data| data.claims)
@@ -92,11 +101,14 @@ pub enum ValidateTokenError {
 }
 
 // Create JWT auth token by encoding claims using the JWT secret
-fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
+fn create_token(
+    claims: &Claims,
+    auth_config: &AuthConfig,
+) -> Result<String, jsonwebtoken::errors::Error> {
     encode(
         &jsonwebtoken::Header::default(),
         &claims,
-        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &EncodingKey::from_secret(auth_config.jwt_secret.as_bytes()),
     )
 }
 
@@ -110,27 +122,39 @@ pub struct Claims {
 mod tests {
     use super::*;
     use crate::{
-        get_redis_client, services::RedisBannedTokenStore, utils::constants::DEFAULT_REDIS_HOSTNAME,
+        config::{AuthConfig, Settings},
+        get_redis_client,
+        services::RedisBannedTokenStore,
     };
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
+    fn create_test_auth_config() -> AuthConfig {
+        let settings = Settings::new().expect("Failed to load test configuration");
+        settings.auth
+    }
+
     fn create_test_banned_token_store(test_name: &str) -> BannedTokenStoreType {
-        let redis_client = get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
-            .expect("Failed to get Redis client");
+        let settings = Settings::new().expect("Failed to load test configuration");
+        let redis_client =
+            get_redis_client(settings.redis.hostname.clone()).expect("Failed to get Redis client");
         let conn = redis_client
             .get_connection()
             .expect("Failed to get Redis connection");
 
         let conn = Arc::new(RwLock::new(conn));
-        Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(conn, format!("test_{}:", test_name))))
+        Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(
+            conn,
+            format!("test_{}:", test_name),
+        )))
     }
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
-        let cookie = generate_auth_cookie(&email).unwrap();
-        assert_eq!(cookie.name(), JWT_COOKIE_NAME);
+        let auth_config = create_test_auth_config();
+        let cookie = generate_auth_cookie(&email, &auth_config).unwrap();
+        assert_eq!(cookie.name(), auth_config.jwt_cookie_name);
         assert_eq!(cookie.value().split('.').count(), 3);
         assert_eq!(cookie.path(), Some("/"));
         assert_eq!(cookie.http_only(), Some(true));
@@ -140,8 +164,9 @@ mod tests {
     #[tokio::test]
     async fn test_create_auth_cookie() {
         let token = "test_token".to_owned();
-        let cookie = create_auth_cookie(token.clone());
-        assert_eq!(cookie.name(), JWT_COOKIE_NAME);
+        let auth_config = create_test_auth_config();
+        let cookie = create_auth_cookie(token.clone(), auth_config.jwt_cookie_name.clone());
+        assert_eq!(cookie.name(), auth_config.jwt_cookie_name);
         assert_eq!(cookie.value(), token);
         assert_eq!(cookie.path(), Some("/"));
         assert_eq!(cookie.http_only(), Some(true));
@@ -151,17 +176,21 @@ mod tests {
     #[tokio::test]
     async fn test_generate_auth_token() {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
-        let result = generate_auth_token(&email).unwrap();
+        let auth_config = create_test_auth_config();
+        let result = generate_auth_token(&email, &auth_config).unwrap();
         assert_eq!(result.split('.').count(), 3);
     }
 
     #[tokio::test]
     async fn test_validate_token_with_valid_token() {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
-        let token = generate_auth_token(&email).unwrap();
+        let auth_config = create_test_auth_config();
+        let token = generate_auth_token(&email, &auth_config).unwrap();
         let banned_token_store = create_test_banned_token_store("validate_token_with_valid_token");
 
-        let result = validate_token(&token, &banned_token_store).await.unwrap();
+        let result = validate_token(&token, &banned_token_store, &auth_config)
+            .await
+            .unwrap();
         assert_eq!(result.sub, "test@example.com");
 
         let exp = Utc::now()
@@ -175,9 +204,11 @@ mod tests {
     #[tokio::test]
     async fn test_validate_token_with_invalid_token() {
         let token = "invalid_token".to_owned();
-        let banned_token_store = create_test_banned_token_store("validate_token_with_invalid_token");
+        let auth_config = create_test_auth_config();
+        let banned_token_store =
+            create_test_banned_token_store("validate_token_with_invalid_token");
 
-        let result = validate_token(&token, &banned_token_store).await;
+        let result = validate_token(&token, &banned_token_store, &auth_config).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ValidateTokenError::TokenError(_) => (),
@@ -188,7 +219,8 @@ mod tests {
     #[tokio::test]
     async fn test_validate_token_with_banned_token() {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
-        let token = generate_auth_token(&email).unwrap();
+        let auth_config = create_test_auth_config();
+        let token = generate_auth_token(&email, &auth_config).unwrap();
         let banned_token_store = create_test_banned_token_store("validate_token_with_banned_token");
 
         // First ban the token
@@ -200,7 +232,7 @@ mod tests {
             .unwrap();
 
         // Then try to validate it
-        let result = validate_token(&token, &banned_token_store).await;
+        let result = validate_token(&token, &banned_token_store, &auth_config).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ValidateTokenError::BannedToken => (),
@@ -212,9 +244,11 @@ mod tests {
     async fn test_validate_token_with_valid_unbanned_token() {
         let email1 = Email::parse("test1@example.com".to_owned()).unwrap();
         let email2 = Email::parse("test2@example.com".to_owned()).unwrap();
-        let token1 = generate_auth_token(&email1).unwrap();
-        let token2 = generate_auth_token(&email2).unwrap();
-        let banned_token_store = create_test_banned_token_store("validate_token_with_valid_unbanned_token");
+        let auth_config = create_test_auth_config();
+        let token1 = generate_auth_token(&email1, &auth_config).unwrap();
+        let token2 = generate_auth_token(&email2, &auth_config).unwrap();
+        let banned_token_store =
+            create_test_banned_token_store("validate_token_with_valid_unbanned_token");
 
         // Ban only token1
         banned_token_store
@@ -225,11 +259,11 @@ mod tests {
             .unwrap();
 
         // token2 should still be valid
-        let result = validate_token(&token2, &banned_token_store).await;
+        let result = validate_token(&token2, &banned_token_store, &auth_config).await;
         assert!(result.is_ok());
 
         // token1 should be banned
-        let result = validate_token(&token1, &banned_token_store).await;
+        let result = validate_token(&token1, &banned_token_store, &auth_config).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ValidateTokenError::BannedToken => (),

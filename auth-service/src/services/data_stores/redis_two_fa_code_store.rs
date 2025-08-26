@@ -16,11 +16,17 @@ pub struct RedisTwoFACodeStore {
 
 impl RedisTwoFACodeStore {
     pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
-        Self { conn, key_prefix: None }
+        Self {
+            conn,
+            key_prefix: None,
+        }
     }
 
     pub fn new_with_prefix(conn: Arc<RwLock<Connection>>, prefix: String) -> Self {
-        Self { conn, key_prefix: Some(prefix) }
+        Self {
+            conn,
+            key_prefix: Some(prefix),
+        }
     }
 }
 
@@ -33,8 +39,11 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError> {
         let key = self.get_key(&email);
-        let two_fa_tuple = TwoFATuple(login_attempt_id.as_ref().to_string(), code.as_ref().to_string());
-        
+        let two_fa_tuple = TwoFATuple(
+            login_attempt_id.as_ref().to_string(),
+            code.as_ref().to_string(),
+        );
+
         let serialized_tuple = serde_json::to_string(&two_fa_tuple)
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
 
@@ -56,19 +65,20 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
         let key = self.get_key(email);
         let mut conn = self.conn.write().await;
-        
-        let serialized_tuple: String = conn.get(&key)
+
+        let serialized_tuple: String = conn
+            .get(&key)
             .map_err(|_| TwoFACodeStoreError::LoginAttemptIdNotFound)?;
-            
+
         let two_fa_tuple: TwoFATuple = serde_json::from_str(&serialized_tuple)
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
-            
+
         let login_attempt_id = LoginAttemptId::parse(two_fa_tuple.0)
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
-            
-        let two_fa_code = TwoFACode::parse(two_fa_tuple.1)
-            .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
-            
+
+        let two_fa_code =
+            TwoFACode::parse(two_fa_tuple.1).map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
+
         Ok((login_attempt_id, two_fa_code))
     }
 }
@@ -91,16 +101,16 @@ impl RedisTwoFACodeStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_redis_client;
-    use crate::utils::constants::DEFAULT_REDIS_HOSTNAME;
     use crate::domain::data_stores::{LoginAttemptId, TwoFACode};
     use crate::domain::Email;
+    use crate::{config::Settings, get_redis_client};
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     async fn create_test_store(test_prefix: &str) -> RedisTwoFACodeStore {
-        let redis_client = get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
-            .expect("Failed to get Redis client");
+        let settings = Settings::new().expect("Failed to load test configuration");
+        let redis_client =
+            get_redis_client(settings.redis.hostname.clone()).expect("Failed to get Redis client");
         let conn = redis_client
             .get_connection()
             .expect("Failed to get Redis connection");
@@ -244,7 +254,9 @@ mod tests {
 
         // Clean up
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&[store.get_key(&email1), store.get_key(&email2)]).unwrap();
+        let _: () = conn
+            .del(&[store.get_key(&email1), store.get_key(&email2)])
+            .unwrap();
     }
 
     #[tokio::test]

@@ -2,7 +2,6 @@ use crate::helpers::{get_random_email, TestApp};
 use auth_service::{
     domain::Email,
     routes::{LoginRequest, SignupRequest, TwoFactorAuthResponse},
-    utils::constants::JWT_COOKIE_NAME,
     ErrorResponse,
 };
 use reqwest::StatusCode;
@@ -67,7 +66,7 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
 
     let auth_cookie = response
         .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .find(|cookie| cookie.name() == &app.settings.auth.jwt_cookie_name)
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());

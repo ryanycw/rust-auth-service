@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
+    config::Settings,
     get_postgres_pool, get_redis_client,
     services::{
-        postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, RedisTwoFACodeStore,
-        MockEmailClient, MockRecaptchaService, RedisBannedTokenStore,
+        postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, MockEmailClient,
+        MockRecaptchaService, RedisBannedTokenStore, RedisTwoFACodeStore,
     },
-    utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOSTNAME},
     Application,
 };
 use reqwest::cookie::Jar;
@@ -25,24 +25,27 @@ pub struct TestApp {
     pub two_fa_code_store: TwoFACodeStoreType,
     pub db_name: String,
     pub clean_up_called: bool,
+    pub settings: Settings,
 }
 
 impl TestApp {
     pub async fn new(recaptcha_success: bool) -> Self {
-        let (pg_pool, db_name) = configure_postgresql().await;
-        let redis_conn = configure_redis();
+        // Load test configuration
+        let settings = Settings::new().expect("Failed to load test configuration");
+        let (pg_pool, db_name) = configure_postgresql(&settings.database.url()).await;
+        let redis_conn = configure_redis(&settings.redis.hostname);
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
         let test_id = uuid::Uuid::new_v4().to_string();
         let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(
             Arc::new(RwLock::new(redis_conn)),
-            format!("integration_test_{}:", test_id)
+            format!("integration_test_{}:", test_id),
         )));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_prefix(
-            Arc::new(RwLock::new(configure_redis())),
-            format!("integration_test_{}:", test_id)
+            Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
+            format!("integration_test_{}:", test_id),
         )));
         let email_client = Arc::new(MockEmailClient);
 
@@ -53,11 +56,16 @@ impl TestApp {
             banned_token_store.clone(),
             two_fa_code_store.clone(),
             email_client,
+            settings.clone(),
         );
 
-        let app = Application::build(app_state, test::APP_ADDRESS)
-            .await
-            .expect("Failed to build app");
+        let app = Application::build(
+            app_state,
+            &settings.server_address(),
+            &settings.cors.allowed_origins,
+        )
+        .await
+        .expect("Failed to build app");
 
         let address = format!("http://{}", app.address.clone());
 
@@ -80,6 +88,7 @@ impl TestApp {
             two_fa_code_store,
             db_name,
             clean_up_called: false,
+            settings,
         }
     }
 
@@ -160,7 +169,8 @@ impl TestApp {
     }
 
     pub async fn clean_up(&mut self) {
-        delete_database(&self.db_name).await;
+        let settings = Settings::new().expect("Failed to load test configuration");
+        delete_database(&self.db_name, &settings.database.url()).await;
         self.clean_up_called = true;
     }
 }
@@ -177,13 +187,13 @@ pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
 }
 
-async fn configure_postgresql() -> (PgPool, String) {
-    let postgresql_conn_url = DATABASE_URL.to_owned();
+async fn configure_postgresql(database_url: &str) -> (PgPool, String) {
+    let postgresql_conn_url = database_url;
 
     // We are creating a new database for each test case, and we need to ensure each database has a unique name!
     let db_name = Uuid::new_v4().to_string();
 
-    configure_database(&postgresql_conn_url, &db_name).await;
+    configure_database(postgresql_conn_url, &db_name).await;
 
     let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
 
@@ -223,10 +233,10 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
         .expect("Failed to migrate the database");
 }
 
-async fn delete_database(db_name: &str) {
-    let postgresql_conn_url: String = DATABASE_URL.to_owned();
+async fn delete_database(db_name: &str, database_url: &str) {
+    let postgresql_conn_url = database_url;
 
-    let connection_options = PgConnectOptions::from_str(&postgresql_conn_url)
+    let connection_options = PgConnectOptions::from_str(postgresql_conn_url)
         .expect("Failed to parse PostgreSQL connection string");
 
     let mut connection = PgConnection::connect_with(&connection_options)
@@ -257,8 +267,8 @@ async fn delete_database(db_name: &str) {
         .expect("Failed to drop the database.");
 }
 
-fn configure_redis() -> redis::Connection {
-    get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
+fn configure_redis(redis_hostname: &str) -> redis::Connection {
+    get_redis_client(redis_hostname.to_owned())
         .expect("Failed to get Redis client")
         .get_connection()
         .expect("Failed to get Redis connection")

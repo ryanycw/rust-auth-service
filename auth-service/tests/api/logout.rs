@@ -1,4 +1,4 @@
-use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
+use auth_service::ErrorResponse;
 use reqwest::{cookie::CookieStore, StatusCode, Url};
 use test_macros::with_db_cleanup;
 
@@ -38,7 +38,10 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let cookie_str = cookies.to_str().unwrap();
     let jwt_token = cookie_str
         .split(';')
-        .find(|s| s.trim().starts_with(&format!("{}=", JWT_COOKIE_NAME)))
+        .find(|s| {
+            s.trim()
+                .starts_with(&format!("{}=", app.settings.auth.jwt_cookie_name))
+        })
         .unwrap()
         .split('=')
         .nth(1)
@@ -131,7 +134,7 @@ async fn should_return_401_if_invalid_token() {
     app.cookie_jar.add_cookie_str(
         &format!(
             "{}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/",
-            JWT_COOKIE_NAME
+            app.settings.auth.jwt_cookie_name
         ),
         &Url::parse("http://127.0.0.1").expect("Failed to parse URL"),
     );

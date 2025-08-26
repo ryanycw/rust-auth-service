@@ -15,11 +15,17 @@ pub struct RedisBannedTokenStore {
 
 impl RedisBannedTokenStore {
     pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
-        Self { conn, key_prefix: None }
+        Self {
+            conn,
+            key_prefix: None,
+        }
     }
 
     pub fn new_with_prefix(conn: Arc<RwLock<Connection>>, prefix: String) -> Self {
-        Self { conn, key_prefix: Some(prefix) }
+        Self {
+            conn,
+            key_prefix: Some(prefix),
+        }
     }
 }
 
@@ -58,14 +64,14 @@ impl RedisBannedTokenStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_redis_client;
-    use crate::utils::constants::DEFAULT_REDIS_HOSTNAME;
+    use crate::{config::Settings, get_redis_client};
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     async fn create_test_store(test_prefix: &str) -> RedisBannedTokenStore {
-        let redis_client = get_redis_client(DEFAULT_REDIS_HOSTNAME.to_owned())
-            .expect("Failed to get Redis client");
+        let settings = Settings::new().expect("Failed to load test configuration");
+        let redis_client =
+            get_redis_client(settings.redis.hostname.clone()).expect("Failed to get Redis client");
         let conn = redis_client
             .get_connection()
             .expect("Failed to get Redis connection");
@@ -120,7 +126,11 @@ mod tests {
         // Clean up
         let mut conn = store.conn.write().await;
         let _: () = conn
-            .del(&[store.get_key(&token1), store.get_key(&token2), store.get_key(&token3)])
+            .del(&[
+                store.get_key(&token1),
+                store.get_key(&token2),
+                store.get_key(&token3),
+            ])
             .unwrap();
     }
 
