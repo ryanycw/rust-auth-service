@@ -12,20 +12,35 @@ use crate::domain::{
 pub struct RedisTwoFACodeStore {
     conn: Arc<RwLock<Connection>>,
     key_prefix: Option<String>,
+    ttl_seconds: u64,
+    key_prefix_base: String,
 }
 
 impl RedisTwoFACodeStore {
-    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+    pub fn new_with_config(
+        conn: Arc<RwLock<Connection>>,
+        ttl_seconds: u64,
+        key_prefix_base: String,
+    ) -> Self {
         Self {
             conn,
             key_prefix: None,
+            ttl_seconds,
+            key_prefix_base,
         }
     }
 
-    pub fn new_with_prefix(conn: Arc<RwLock<Connection>>, prefix: String) -> Self {
+    pub fn new_with_config_and_prefix(
+        conn: Arc<RwLock<Connection>>,
+        ttl_seconds: u64,
+        key_prefix_base: String,
+        prefix: String,
+    ) -> Self {
         Self {
             conn,
             key_prefix: Some(prefix),
+            ttl_seconds,
+            key_prefix_base,
         }
     }
 }
@@ -48,7 +63,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
 
         let mut conn = self.conn.write().await;
-        conn.set_ex(&key, serialized_tuple, TEN_MINUTES_IN_SECONDS)
+        conn.set_ex(&key, serialized_tuple, self.ttl_seconds)
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)
     }
 
@@ -86,14 +101,11 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
 #[derive(Serialize, Deserialize)]
 struct TwoFATuple(pub String, pub String);
 
-const TEN_MINUTES_IN_SECONDS: u64 = 600;
-const TWO_FA_CODE_PREFIX: &str = "two_fa_code:";
-
 impl RedisTwoFACodeStore {
     fn get_key(&self, email: &Email) -> String {
         match &self.key_prefix {
-            Some(prefix) => format!("{}{}{}", prefix, TWO_FA_CODE_PREFIX, email.as_ref()),
-            None => format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref()),
+            Some(prefix) => format!("{}{}{}", prefix, self.key_prefix_base, email.as_ref()),
+            None => format!("{}{}", self.key_prefix_base, email.as_ref()),
         }
     }
 }
@@ -115,7 +127,12 @@ mod tests {
             .get_connection()
             .expect("Failed to get Redis connection");
         let conn = Arc::new(RwLock::new(conn));
-        RedisTwoFACodeStore::new_with_prefix(conn, format!("test_{}:", test_prefix))
+        RedisTwoFACodeStore::new_with_config_and_prefix(
+            conn,
+            settings.redis.two_fa_code_ttl_seconds,
+            settings.redis.two_fa_code_key_prefix,
+            format!("test_{}:", test_prefix),
+        )
     }
 
     #[tokio::test]

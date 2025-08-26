@@ -1,0 +1,8 @@
+# Test configuration - overrides default.toml for testing
+# This file is loaded when RUN_MODE=test
+
+[redis]
+# Short TTLs for testing expiration (1 second)
+# This allows tests to verify TTL expiration without waiting 10 minutes
+banned_token_ttl_seconds = 1
+two_fa_code_ttl_seconds = 1

@@ -32,6 +32,10 @@ pub struct DatabaseConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct RedisConfig {
     pub hostname: String,
+    pub banned_token_ttl_seconds: u64,
+    pub banned_token_key_prefix: String,
+    pub two_fa_code_ttl_seconds: u64,
+    pub two_fa_code_key_prefix: String,
 }
 
 /// Authentication configuration
@@ -39,6 +43,7 @@ pub struct RedisConfig {
 pub struct AuthConfig {
     pub jwt_secret: String,
     pub jwt_cookie_name: String,
+    pub token_ttl_seconds: i64,
 }
 
 /// CORS configuration
@@ -109,7 +114,12 @@ mod tests {
         assert_eq!(settings.server.host, "127.0.0.1");
         assert_eq!(settings.server.port, 0);
         assert_eq!(settings.auth.jwt_cookie_name, "jwt");
+        assert_eq!(settings.auth.token_ttl_seconds, 600);
         assert_eq!(settings.redis.hostname, "127.0.0.1");
+        assert_eq!(settings.redis.banned_token_ttl_seconds, 600);
+        assert_eq!(settings.redis.banned_token_key_prefix, "banned_token:");
+        assert_eq!(settings.redis.two_fa_code_ttl_seconds, 600);
+        assert_eq!(settings.redis.two_fa_code_key_prefix, "two_fa_code:");
     }
 
     #[test]

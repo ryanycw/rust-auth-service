@@ -14,11 +14,21 @@ password = "password"  # Will be overridden by APP_POSTGRES__PASSWORD
 [redis]
 # Default Redis hostname
 hostname = "127.0.0.1"
+# TTL for banned tokens in Redis (10 minutes)
+banned_token_ttl_seconds = 600
+# Key prefix for banned tokens
+banned_token_key_prefix = "banned_token:"
+# TTL for 2FA codes in Redis (10 minutes) 
+two_fa_code_ttl_seconds = 600
+# Key prefix for 2FA codes
+two_fa_code_key_prefix = "two_fa_code:"
 
 [auth]
 # JWT secret - MUST be set via environment variable in production
 jwt_secret = "dev-secret-key-change-in-production"
 jwt_cookie_name = "jwt"
+# JWT token TTL in seconds (10 minutes)
+token_ttl_seconds = 600
 
 [cors]
 # Allowed CORS origins for development

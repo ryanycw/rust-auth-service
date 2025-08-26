@@ -3,28 +3,40 @@ use std::sync::Arc;
 use redis::{Commands, Connection};
 use tokio::sync::RwLock;
 
-use crate::{
-    domain::data_stores::{BannedTokenStore, BannedTokenStoreError},
-    utils::auth::TOKEN_TTL_SECONDS,
-};
+use crate::domain::data_stores::{BannedTokenStore, BannedTokenStoreError};
 
 pub struct RedisBannedTokenStore {
     pub conn: Arc<RwLock<Connection>>,
     pub key_prefix: Option<String>,
+    pub token_ttl: u64,
+    pub key_prefix_base: String,
 }
 
 impl RedisBannedTokenStore {
-    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+    pub fn new_with_config(
+        conn: Arc<RwLock<Connection>>,
+        token_ttl: u64,
+        key_prefix_base: String,
+    ) -> Self {
         Self {
             conn,
             key_prefix: None,
+            token_ttl,
+            key_prefix_base,
         }
     }
 
-    pub fn new_with_prefix(conn: Arc<RwLock<Connection>>, prefix: String) -> Self {
+    pub fn new_with_config_and_prefix(
+        conn: Arc<RwLock<Connection>>,
+        token_ttl: u64,
+        key_prefix_base: String,
+        prefix: String,
+    ) -> Self {
         Self {
             conn,
             key_prefix: Some(prefix),
+            token_ttl,
+            key_prefix_base,
         }
     }
 }
@@ -33,10 +45,9 @@ impl RedisBannedTokenStore {
 impl BannedTokenStore for RedisBannedTokenStore {
     async fn store_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
         let key = self.get_key(&token);
-        let ttl = TOKEN_TTL_SECONDS as u64;
 
         let mut conn = self.conn.write().await;
-        conn.set_ex(&key, true, ttl)
+        conn.set_ex(&key, true, self.token_ttl)
             .map_err(|_| BannedTokenStoreError::UnexpectedError)
     }
 
@@ -49,14 +60,11 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 }
 
-// We are using a key prefix to prevent collisions and organize data!
-const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
-
 impl RedisBannedTokenStore {
     fn get_key(&self, token: &str) -> String {
         match &self.key_prefix {
-            Some(prefix) => format!("{}{}{}", prefix, BANNED_TOKEN_KEY_PREFIX, token),
-            None => format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token),
+            Some(prefix) => format!("{}{}{}", prefix, self.key_prefix_base, token),
+            None => format!("{}{}", self.key_prefix_base, token),
         }
     }
 }
@@ -76,7 +84,12 @@ mod tests {
             .get_connection()
             .expect("Failed to get Redis connection");
         let conn = Arc::new(RwLock::new(conn));
-        RedisBannedTokenStore::new_with_prefix(conn, format!("test_{}:", test_prefix))
+        RedisBannedTokenStore::new_with_config_and_prefix(
+            conn,
+            settings.redis.banned_token_ttl_seconds,
+            settings.redis.banned_token_key_prefix,
+            format!("test_{}:", test_prefix),
+        )
     }
 
     #[tokio::test]

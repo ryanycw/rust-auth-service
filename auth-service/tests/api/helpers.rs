@@ -11,6 +11,7 @@ use auth_service::{
     },
     Application,
 };
+use redis::Commands;
 use reqwest::cookie::Jar;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPoolOptions};
 use sqlx::{Connection, Executor, PgPool};
@@ -26,11 +27,15 @@ pub struct TestApp {
     pub db_name: String,
     pub clean_up_called: bool,
     pub settings: Settings,
+    pub test_id: String,
 }
 
 impl TestApp {
     pub async fn new(recaptcha_success: bool) -> Self {
-        // Load test configuration
+        // Set RUN_MODE to "test" so it loads config/test.toml with short TTLs
+        std::env::set_var("RUN_MODE", "test");
+
+        // Load test configuration (will now use config/test.toml)
         let settings = Settings::new().expect("Failed to load test configuration");
         let (pg_pool, db_name) = configure_postgresql(&settings.database.url()).await;
         let redis_conn = configure_redis(&settings.redis.hostname);
@@ -38,15 +43,23 @@ impl TestApp {
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
         let test_id = uuid::Uuid::new_v4().to_string();
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(
-            Arc::new(RwLock::new(redis_conn)),
-            format!("integration_test_{}:", test_id),
-        )));
+        let banned_token_store = Arc::new(RwLock::new(
+            RedisBannedTokenStore::new_with_config_and_prefix(
+                Arc::new(RwLock::new(redis_conn)),
+                settings.redis.banned_token_ttl_seconds,
+                settings.redis.banned_token_key_prefix.clone(),
+                format!("integration_test_{}:", test_id),
+            ),
+        ));
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
-        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_prefix(
-            Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
-            format!("integration_test_{}:", test_id),
-        )));
+        let two_fa_code_store = Arc::new(RwLock::new(
+            RedisTwoFACodeStore::new_with_config_and_prefix(
+                Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
+                settings.redis.two_fa_code_ttl_seconds,
+                settings.redis.two_fa_code_key_prefix.clone(),
+                format!("integration_test_{}:", test_id),
+            ),
+        ));
         let email_client = Arc::new(MockEmailClient);
 
         let app_state = AppState::new(
@@ -89,6 +102,7 @@ impl TestApp {
             db_name,
             clean_up_called: false,
             settings,
+            test_id,
         }
     }
 
@@ -166,6 +180,35 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    /// Construct the Redis key for a banned token
+    pub fn get_banned_token_redis_key(&self, token: &str) -> String {
+        format!(
+            "integration_test_{}:{}{}",
+            self.test_id, self.settings.redis.banned_token_key_prefix, token
+        )
+    }
+
+    /// Construct the Redis key for a 2FA code
+    pub fn get_two_fa_code_redis_key(&self, email: &str) -> String {
+        format!(
+            "integration_test_{}:{}{}",
+            self.test_id, self.settings.redis.two_fa_code_key_prefix, email
+        )
+    }
+
+    /// Check if a key exists in Redis directly
+    pub async fn redis_key_exists(&self, key: &str) -> bool {
+        let mut conn = configure_redis(&self.settings.redis.hostname);
+        conn.exists(key).unwrap_or(false)
+    }
+
+    /// Get the TTL (time to live) of a key in Redis
+    /// Returns -1 if key doesn't exist, -2 if key exists but has no expiration
+    pub async fn get_redis_ttl(&self, key: &str) -> i64 {
+        let mut conn = configure_redis(&self.settings.redis.hostname);
+        conn.ttl(key).unwrap_or(-1)
     }
 
     pub async fn clean_up(&mut self) {

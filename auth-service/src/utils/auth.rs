@@ -36,15 +36,12 @@ pub enum GenerateTokenError {
     UnexpectedError,
 }
 
-// This value determines how long the JWT auth token is valid for
-pub const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
-
 // Create JWT auth token
 fn generate_auth_token(
     email: &Email,
     auth_config: &AuthConfig,
 ) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
+    let delta = chrono::Duration::try_seconds(auth_config.token_ttl_seconds)
         .ok_or(GenerateTokenError::UnexpectedError)?;
 
     // Create JWT expiration time
@@ -143,10 +140,14 @@ mod tests {
             .expect("Failed to get Redis connection");
 
         let conn = Arc::new(RwLock::new(conn));
-        Arc::new(RwLock::new(RedisBannedTokenStore::new_with_prefix(
-            conn,
-            format!("test_{}:", test_name),
-        )))
+        Arc::new(RwLock::new(
+            RedisBannedTokenStore::new_with_config_and_prefix(
+                conn,
+                settings.redis.banned_token_ttl_seconds,
+                settings.redis.banned_token_key_prefix,
+                format!("test_{}:", test_name),
+            ),
+        ))
     }
 
     #[tokio::test]

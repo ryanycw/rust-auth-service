@@ -19,12 +19,16 @@ async fn main() {
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
     let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
-    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
-        RwLock::new(redis_conn),
-    ))));
-    let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(Arc::new(
-        RwLock::new(configure_redis(&settings.redis.hostname)),
-    ))));
+    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new_with_config(
+        Arc::new(RwLock::new(redis_conn)),
+        settings.redis.banned_token_ttl_seconds,
+        settings.redis.banned_token_key_prefix.clone(),
+    )));
+    let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_config(
+        Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
+        settings.redis.two_fa_code_ttl_seconds,
+        settings.redis.two_fa_code_key_prefix.clone(),
+    )));
     let email_client = Arc::new(MockEmailClient);
 
     // For development, use a mock reCAPTCHA service that always succeeds

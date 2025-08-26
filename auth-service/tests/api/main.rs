@@ -6,5 +6,6 @@ mod progressive_recaptcha_login;
 mod recaptcha;
 mod root;
 mod signup;
+mod ttl_expiration;
 mod verify_2fa;
 mod verify_token;
