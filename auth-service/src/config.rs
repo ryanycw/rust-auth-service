@@ -32,6 +32,7 @@ pub struct DatabaseConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct RedisConfig {
     pub hostname: String,
+    pub password: String,
     pub banned_token_ttl_seconds: u64,
     pub banned_token_key_prefix: String,
     pub two_fa_code_ttl_seconds: u64,

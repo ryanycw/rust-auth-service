@@ -14,6 +14,7 @@ password = "password"  # Will be overridden by APP_POSTGRES__PASSWORD
 [redis]
 # Default Redis hostname
 hostname = "127.0.0.1"
+password = "password"  # Will be overridden by APP_REDIS__PASSWORD
 # TTL for banned tokens in Redis (10 minutes)
 banned_token_ttl_seconds = 600
 # Key prefix for banned tokens

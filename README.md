@@ -42,6 +42,7 @@ visit http://localhost:3000
 ```
 
 This uses `compose.local.yml` to override production settings:
+
 - Builds from local source code instead of Docker Hub images
 - Runs nginx on HTTP only (port 80) without SSL
 - Uses `DOMAIN=http://localhost` for local development
@@ -67,10 +68,20 @@ docker compose up -d
 Production uses the `DOMAIN` environment variable (set in GitHub repository variables) to configure both the application URLs and CORS settings.
 
 **HTTPS (via nginx proxy):**
+
 - Root (app): https://rust-acc.duckdns.org/
 - App service: https://rust-acc.duckdns.org/app/
 - Auth service: https://rust-acc.duckdns.org/auth/
 
 **Environment Configuration:**
+
 - `DOMAIN`: Set to `https://rust-acc.duckdns.org` in GitHub repository variables
 - This single variable configures both frontend URLs and CORS allowed origins
+
+```bash
+docker run --name redis-db -p "6379:6379" -d redis:7.0-alpine redis-server --requirepass password
+```
+
+```bash
+docker run --name auth-service-test-db -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres:15.2-alpine
+```

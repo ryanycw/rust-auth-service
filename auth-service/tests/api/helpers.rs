@@ -38,7 +38,7 @@ impl TestApp {
         // Load test configuration (will now use config/test.toml)
         let settings = Settings::new().expect("Failed to load test configuration");
         let (pg_pool, db_name) = configure_postgresql(&settings.database.url()).await;
-        let redis_conn = configure_redis(&settings.redis.hostname);
+        let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password);
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
@@ -54,7 +54,10 @@ impl TestApp {
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(
             RedisTwoFACodeStore::new_with_config_and_prefix(
-                Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
+                Arc::new(RwLock::new(configure_redis(
+                    &settings.redis.hostname,
+                    &settings.redis.password,
+                ))),
                 settings.redis.two_fa_code_ttl_seconds,
                 settings.redis.two_fa_code_key_prefix.clone(),
                 format!("integration_test_{}:", test_id),
@@ -200,14 +203,16 @@ impl TestApp {
 
     /// Check if a key exists in Redis directly
     pub async fn redis_key_exists(&self, key: &str) -> bool {
-        let mut conn = configure_redis(&self.settings.redis.hostname);
+        let mut conn =
+            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password);
         conn.exists(key).unwrap_or(false)
     }
 
     /// Get the TTL (time to live) of a key in Redis
     /// Returns -1 if key doesn't exist, -2 if key exists but has no expiration
     pub async fn get_redis_ttl(&self, key: &str) -> i64 {
-        let mut conn = configure_redis(&self.settings.redis.hostname);
+        let mut conn =
+            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password);
         conn.ttl(key).unwrap_or(-1)
     }
 
@@ -310,8 +315,8 @@ async fn delete_database(db_name: &str, database_url: &str) {
         .expect("Failed to drop the database.");
 }
 
-fn configure_redis(redis_hostname: &str) -> redis::Connection {
-    get_redis_client(redis_hostname.to_owned())
+fn configure_redis(redis_hostname: &str, password: &str) -> redis::Connection {
+    get_redis_client(redis_hostname.to_owned(), password.to_owned())
         .expect("Failed to get Redis client")
         .get_connection()
         .expect("Failed to get Redis connection")

@@ -133,8 +133,11 @@ mod tests {
 
     fn create_test_banned_token_store(test_name: &str) -> BannedTokenStoreType {
         let settings = Settings::new().expect("Failed to load test configuration");
-        let redis_client =
-            get_redis_client(settings.redis.hostname.clone()).expect("Failed to get Redis client");
+        let redis_client = get_redis_client(
+            settings.redis.hostname.clone(),
+            settings.redis.password.clone(),
+        )
+        .expect("Failed to get Redis client");
         let conn = redis_client
             .get_connection()
             .expect("Failed to get Redis connection");

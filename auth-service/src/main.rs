@@ -15,7 +15,7 @@ async fn main() {
     let settings = Settings::new().expect("Failed to load configuration");
 
     let pg_pool = configure_postgresql(&settings.database.url()).await;
-    let redis_conn = configure_redis(&settings.redis.hostname);
+    let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password);
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
     let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
@@ -25,7 +25,10 @@ async fn main() {
         settings.redis.banned_token_key_prefix.clone(),
     )));
     let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_config(
-        Arc::new(RwLock::new(configure_redis(&settings.redis.hostname))),
+        Arc::new(RwLock::new(configure_redis(
+            &settings.redis.hostname,
+            &settings.redis.password,
+        ))),
         settings.redis.two_fa_code_ttl_seconds,
         settings.redis.two_fa_code_key_prefix.clone(),
     )));
@@ -70,8 +73,8 @@ async fn configure_postgresql(database_url: &str) -> PgPool {
     pg_pool
 }
 
-fn configure_redis(redis_hostname: &str) -> redis::Connection {
-    get_redis_client(redis_hostname.to_owned())
+pub fn configure_redis(redis_hostname: &str, password: &str) -> redis::Connection {
+    get_redis_client(redis_hostname.to_owned(), password.to_owned())
         .expect("Failed to get Redis client")
         .get_connection()
         .expect("Failed to get Redis connection")
