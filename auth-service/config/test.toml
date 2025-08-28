@@ -2,7 +2,6 @@
 # This file is loaded when RUN_MODE=test
 
 [redis]
-password = ""
 # Short TTLs for testing expiration (1 second)
 # This allows tests to verify TTL expiration without waiting 10 minutes
 banned_token_ttl_seconds = 1

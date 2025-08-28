@@ -29,7 +29,7 @@ jobs:
       redis:
         image: redis:7-alpine
         options: >-
-          --health-cmd "redis-cli -a ping"
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -61,6 +61,9 @@ jobs:
         run: |
           cargo build --verbose
           cargo test --verbose
+
+      - name: Set up Redis
+        run: redis-server --requirepass password
 
       - name: Build and test auth-service code
         working-directory: ./auth-service
