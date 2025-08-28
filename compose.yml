@@ -16,13 +16,15 @@ services:
     image: ryanycwdev/auth-service
     restart: "always" # automatically restart container when server crashes
     environment:
-      JWT_SECRET: ${JWT_SECRET}
-      CORS_ALLOWED_ORIGINS: ${DOMAIN}
-      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432"
+      APP_AUTH__JWT_SECRET: ${JWT_SECRET}
+      APP_CORS__ALLOWED_ORIGINS: ${DOMAIN}
+      APP_POSTGRES__PASSWORD: "${POSTGRES_PASSWORD}"
+      APP_REDIS__PASSWORD: ${REDIS_PASSWORD}
     expose:
       - "3000" # expose port internally to other containers only
     depends_on:
       - db
+      - redis
     networks:
       - app-network
 
@@ -38,8 +40,16 @@ services:
   redis:
     image: redis:7.0-alpine
     restart: always
-    ports:
-      - "6379:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    expose:
+      - "6379"  # Internal only, no external ports!
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
 
   nginx:
     image: nginx:alpine
@@ -71,4 +81,6 @@ networks:
 
 volumes:
   db:
+    driver: local
+  redis-data:
     driver: local

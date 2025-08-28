@@ -121,8 +121,11 @@ jobs:
           password: ${{ secrets.DROPLET_PASSWORD }}
           script: |
             cd ~
-            export APP_AUTH__JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export APP_POSTGRES__PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            export REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            export DOMAIN=${{ vars.DOMAIN }}
+            export RUN_MODE=production
             docker compose down
             docker compose pull
 
