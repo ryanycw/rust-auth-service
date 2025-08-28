@@ -28,10 +28,8 @@ jobs:
 
       redis:
         image: redis:7-alpine
-        env:
-          REDISCLI_AUTH: password
         options: >-
-          --health-cmd "redis-cli -a password ping"
+          --health-cmd "redis-cli -a ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
