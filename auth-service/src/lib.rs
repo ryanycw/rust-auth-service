@@ -1,5 +1,5 @@
 use axum::http::{HeaderValue, Method};
-use redis::{Client, RedisResult};
+use redis::RedisResult;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::error::Error;
@@ -119,12 +119,11 @@ pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new().max_connections(5).connect(url).await
 }
 
-pub fn get_redis_client(redis_hostname: String, password: String) -> RedisResult<Client> {
+pub async fn get_redis_connection(
+    redis_hostname: String,
+    password: String,
+) -> RedisResult<redis::aio::MultiplexedConnection> {
     let redis_url = format!("redis://:{password}@{redis_hostname}/");
-    redis::Client::open(redis_url)
-}
-
-pub async fn get_redis_connection(redis_hostname: String, password: String) -> RedisResult<redis::aio::MultiplexedConnection> {
-    let client = get_redis_client(redis_hostname, password)?;
+    let client = redis::Client::open(redis_url)?;
     client.get_multiplexed_async_connection().await
 }
