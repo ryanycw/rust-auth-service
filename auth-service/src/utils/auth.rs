@@ -120,7 +120,6 @@ mod tests {
     use super::*;
     use crate::{
         config::{AuthConfig, Settings},
-        get_redis_client,
         services::RedisBannedTokenStore,
     };
     use std::sync::Arc;
@@ -131,16 +130,14 @@ mod tests {
         settings.auth
     }
 
-    fn create_test_banned_token_store(test_name: &str) -> BannedTokenStoreType {
+    async fn create_test_banned_token_store(test_name: &str) -> BannedTokenStoreType {
         let settings = Settings::new().expect("Failed to load test configuration");
-        let redis_client = get_redis_client(
+        let conn = crate::get_redis_connection(
             settings.redis.hostname.clone(),
             settings.redis.password.clone(),
         )
-        .expect("Failed to get Redis client");
-        let conn = redis_client
-            .get_connection()
-            .expect("Failed to get Redis connection");
+        .await
+        .expect("Failed to get Redis connection");
 
         let conn = Arc::new(RwLock::new(conn));
         Arc::new(RwLock::new(
@@ -190,7 +187,7 @@ mod tests {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
         let auth_config = create_test_auth_config();
         let token = generate_auth_token(&email, &auth_config).unwrap();
-        let banned_token_store = create_test_banned_token_store("validate_token_with_valid_token");
+        let banned_token_store = create_test_banned_token_store("validate_token_with_valid_token").await;
 
         let result = validate_token(&token, &banned_token_store, &auth_config)
             .await
@@ -210,7 +207,7 @@ mod tests {
         let token = "invalid_token".to_owned();
         let auth_config = create_test_auth_config();
         let banned_token_store =
-            create_test_banned_token_store("validate_token_with_invalid_token");
+            create_test_banned_token_store("validate_token_with_invalid_token").await;
 
         let result = validate_token(&token, &banned_token_store, &auth_config).await;
         assert!(result.is_err());
@@ -225,7 +222,7 @@ mod tests {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
         let auth_config = create_test_auth_config();
         let token = generate_auth_token(&email, &auth_config).unwrap();
-        let banned_token_store = create_test_banned_token_store("validate_token_with_banned_token");
+        let banned_token_store = create_test_banned_token_store("validate_token_with_banned_token").await;
 
         // First ban the token
         banned_token_store
@@ -252,7 +249,7 @@ mod tests {
         let token1 = generate_auth_token(&email1, &auth_config).unwrap();
         let token2 = generate_auth_token(&email2, &auth_config).unwrap();
         let banned_token_store =
-            create_test_banned_token_store("validate_token_with_valid_unbanned_token");
+            create_test_banned_token_store("validate_token_with_valid_unbanned_token").await;
 
         // Ban only token1
         banned_token_store

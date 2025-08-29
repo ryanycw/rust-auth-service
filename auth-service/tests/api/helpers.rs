@@ -4,14 +4,13 @@ use std::sync::Arc;
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
     config::Settings,
-    get_postgres_pool, get_redis_client,
+    get_postgres_pool, get_redis_connection,
     services::{
         postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, MockEmailClient,
         MockRecaptchaService, RedisBannedTokenStore, RedisTwoFACodeStore,
     },
     Application,
 };
-use redis::Commands;
 use reqwest::cookie::Jar;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPoolOptions};
 use sqlx::{Connection, Executor, PgPool};
@@ -38,7 +37,7 @@ impl TestApp {
         // Load test configuration (will now use config/test.toml)
         let settings = Settings::new().expect("Failed to load test configuration");
         let (pg_pool, db_name) = configure_postgresql(&settings.database.url()).await;
-        let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password);
+        let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password).await;
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
@@ -57,7 +56,7 @@ impl TestApp {
                 Arc::new(RwLock::new(configure_redis(
                     &settings.redis.hostname,
                     &settings.redis.password,
-                ))),
+                ).await)),
                 settings.redis.two_fa_code_ttl_seconds,
                 settings.redis.two_fa_code_key_prefix.clone(),
                 format!("integration_test_{}:", test_id),
@@ -203,17 +202,19 @@ impl TestApp {
 
     /// Check if a key exists in Redis directly
     pub async fn redis_key_exists(&self, key: &str) -> bool {
+        use redis::AsyncCommands;
         let mut conn =
-            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password);
-        conn.exists(key).unwrap_or(false)
+            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password).await;
+        conn.exists(key).await.unwrap_or(false)
     }
 
     /// Get the TTL (time to live) of a key in Redis
     /// Returns -1 if key doesn't exist, -2 if key exists but has no expiration
     pub async fn get_redis_ttl(&self, key: &str) -> i64 {
+        use redis::AsyncCommands;
         let mut conn =
-            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password);
-        conn.ttl(key).unwrap_or(-1)
+            configure_redis(&self.settings.redis.hostname, &self.settings.redis.password).await;
+        conn.ttl(key).await.unwrap_or(-1)
     }
 
     pub async fn clean_up(&mut self) {
@@ -315,9 +316,8 @@ async fn delete_database(db_name: &str, database_url: &str) {
         .expect("Failed to drop the database.");
 }
 
-fn configure_redis(redis_hostname: &str, password: &str) -> redis::Connection {
-    get_redis_client(redis_hostname.to_owned(), password.to_owned())
-        .expect("Failed to get Redis client")
-        .get_connection()
+async fn configure_redis(redis_hostname: &str, password: &str) -> redis::aio::MultiplexedConnection {
+    get_redis_connection(redis_hostname.to_owned(), password.to_owned())
+        .await
         .expect("Failed to get Redis connection")
 }

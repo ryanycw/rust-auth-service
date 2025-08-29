@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use redis::{Commands, Connection};
+use redis::AsyncCommands;
 use tokio::sync::RwLock;
 
 use crate::domain::data_stores::{BannedTokenStore, BannedTokenStoreError};
 
 pub struct RedisBannedTokenStore {
-    pub conn: Arc<RwLock<Connection>>,
+    pub conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
     pub key_prefix: Option<String>,
     pub token_ttl: u64,
     pub key_prefix_base: String,
@@ -14,7 +14,7 @@ pub struct RedisBannedTokenStore {
 
 impl RedisBannedTokenStore {
     pub fn new_with_config(
-        conn: Arc<RwLock<Connection>>,
+        conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         token_ttl: u64,
         key_prefix_base: String,
     ) -> Self {
@@ -27,7 +27,7 @@ impl RedisBannedTokenStore {
     }
 
     pub fn new_with_config_and_prefix(
-        conn: Arc<RwLock<Connection>>,
+        conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         token_ttl: u64,
         key_prefix_base: String,
         prefix: String,
@@ -48,6 +48,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
 
         let mut conn = self.conn.write().await;
         conn.set_ex(&key, true, self.token_ttl)
+            .await
             .map_err(|_| BannedTokenStoreError::UnexpectedError)
     }
 
@@ -56,6 +57,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
 
         let mut conn = self.conn.write().await;
         conn.exists(&key)
+            .await
             .map_err(|_| BannedTokenStoreError::UnexpectedError)
     }
 }
@@ -72,20 +74,18 @@ impl RedisBannedTokenStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::Settings, get_redis_client};
+    use crate::config::Settings;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     async fn create_test_store(test_prefix: &str) -> RedisBannedTokenStore {
         let settings = Settings::new().expect("Failed to load test configuration");
-        let redis_client = get_redis_client(
+        let conn = crate::get_redis_connection(
             settings.redis.hostname.clone(),
             settings.redis.password.clone(),
         )
-        .expect("Failed to get Redis client");
-        let conn = redis_client
-            .get_connection()
-            .expect("Failed to get Redis connection");
+        .await
+        .expect("Failed to get Redis connection");
         let conn = Arc::new(RwLock::new(conn));
         RedisBannedTokenStore::new_with_config_and_prefix(
             conn,
@@ -110,7 +110,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&token);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -147,6 +147,7 @@ mod tests {
                 store.get_key(&token2),
                 store.get_key(&token3),
             ])
+            .await
             .unwrap();
     }
 
@@ -163,7 +164,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&token);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -177,7 +178,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&empty_token);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -191,7 +192,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&special_token);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -205,6 +206,6 @@ mod tests {
         // Clean up
         let key = store.get_key(&long_token);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 }

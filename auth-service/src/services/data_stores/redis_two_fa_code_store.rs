@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use redis::{Commands, Connection};
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -10,7 +10,7 @@ use crate::domain::{
 };
 
 pub struct RedisTwoFACodeStore {
-    conn: Arc<RwLock<Connection>>,
+    conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
     key_prefix: Option<String>,
     ttl_seconds: u64,
     key_prefix_base: String,
@@ -18,7 +18,7 @@ pub struct RedisTwoFACodeStore {
 
 impl RedisTwoFACodeStore {
     pub fn new_with_config(
-        conn: Arc<RwLock<Connection>>,
+        conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         ttl_seconds: u64,
         key_prefix_base: String,
     ) -> Self {
@@ -31,7 +31,7 @@ impl RedisTwoFACodeStore {
     }
 
     pub fn new_with_config_and_prefix(
-        conn: Arc<RwLock<Connection>>,
+        conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         ttl_seconds: u64,
         key_prefix_base: String,
         prefix: String,
@@ -64,6 +64,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
 
         let mut conn = self.conn.write().await;
         conn.set_ex(&key, serialized_tuple, self.ttl_seconds)
+            .await
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)
     }
 
@@ -71,6 +72,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         let key = self.get_key(email);
         let mut conn = self.conn.write().await;
         conn.del(&key)
+            .await
             .map_err(|_| TwoFACodeStoreError::UnexpectedError)
     }
 
@@ -83,6 +85,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
 
         let serialized_tuple: String = conn
             .get(&key)
+            .await
             .map_err(|_| TwoFACodeStoreError::LoginAttemptIdNotFound)?;
 
         let two_fa_tuple: TwoFATuple = serde_json::from_str(&serialized_tuple)
@@ -115,20 +118,18 @@ mod tests {
     use super::*;
     use crate::domain::data_stores::{LoginAttemptId, TwoFACode};
     use crate::domain::Email;
-    use crate::{config::Settings, get_redis_client};
+    use crate::config::Settings;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     async fn create_test_store(test_prefix: &str) -> RedisTwoFACodeStore {
         let settings = Settings::new().expect("Failed to load test configuration");
-        let redis_client = get_redis_client(
+        let conn = crate::get_redis_connection(
             settings.redis.hostname.clone(),
             settings.redis.password.clone(),
         )
-        .expect("Failed to get Redis client");
-        let conn = redis_client
-            .get_connection()
-            .expect("Failed to get Redis connection");
+        .await
+        .expect("Failed to get Redis connection");
         let conn = Arc::new(RwLock::new(conn));
         RedisTwoFACodeStore::new_with_config_and_prefix(
             conn,
@@ -161,7 +162,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&email);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -236,7 +237,7 @@ mod tests {
         // Clean up
         let key = store.get_key(&email);
         let mut conn = store.conn.write().await;
-        let _: () = conn.del(&key).unwrap();
+        let _: () = conn.del(&key).await.unwrap();
     }
 
     #[tokio::test]
@@ -276,6 +277,7 @@ mod tests {
         let mut conn = store.conn.write().await;
         let _: () = conn
             .del(&[store.get_key(&email1), store.get_key(&email2)])
+            .await
             .unwrap();
     }
 
