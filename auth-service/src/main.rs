@@ -4,18 +4,20 @@ use auth_service::services::{
     postgres_user_store::PostgresUserStore, HashmapLoginAttemptStore, MockEmailClient,
     MockRecaptchaService, RedisBannedTokenStore, RedisTwoFACodeStore,
 };
+use auth_service::utils::tracing::init_tracing;
 use auth_service::{app_state::AppState, config::Settings, Application};
-use auth_service::{get_postgres_pool, get_redis_client};
+use auth_service::{get_postgres_pool, get_redis_connection};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
+    init_tracing();
     // Load configuration
     let settings = Settings::new().expect("Failed to load configuration");
 
     let pg_pool = configure_postgresql(&settings.database.url()).await;
-    let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password);
+    let redis_conn = configure_redis(&settings.redis.hostname, &settings.redis.password).await;
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
     let login_attempt_store = Arc::new(RwLock::new(HashmapLoginAttemptStore::new()));
@@ -28,7 +30,7 @@ async fn main() {
         Arc::new(RwLock::new(configure_redis(
             &settings.redis.hostname,
             &settings.redis.password,
-        ))),
+        ).await)),
         settings.redis.two_fa_code_ttl_seconds,
         settings.redis.two_fa_code_key_prefix.clone(),
     )));
@@ -73,9 +75,8 @@ async fn configure_postgresql(database_url: &str) -> PgPool {
     pg_pool
 }
 
-pub fn configure_redis(redis_hostname: &str, password: &str) -> redis::Connection {
-    get_redis_client(redis_hostname.to_owned(), password.to_owned())
-        .expect("Failed to get Redis client")
-        .get_connection()
+pub async fn configure_redis(redis_hostname: &str, password: &str) -> redis::aio::MultiplexedConnection {
+    get_redis_connection(redis_hostname.to_owned(), password.to_owned())
+        .await
         .expect("Failed to get Redis connection")
 }

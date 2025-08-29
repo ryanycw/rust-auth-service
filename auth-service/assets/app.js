@@ -64,7 +64,7 @@ loginButton.addEventListener("click", (e) => {
         requestBody.recaptchaToken = recaptchaToken;
     }
 
-    fetch('/login', {
+    fetch('/auth/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -180,7 +180,7 @@ signupButton.addEventListener("click", (e) => {
         return;
     }
 
-    fetch('/signup', {
+    fetch('/auth/signup', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ TwoFAButton.addEventListener("click", (e) => {
     const loginAttemptId = TwoFAForm.login_attempt_id.value;
     const TwoFACode = TwoFAForm.email_code.value;
 
-    fetch('/verify-2fa', {
+    fetch('/auth/verify-2fa', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

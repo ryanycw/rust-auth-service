@@ -3,12 +3,13 @@ use redis::{Client, RedisResult};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::error::Error;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 pub use crate::app_state::AppState;
 pub use crate::config::Settings;
 use crate::domain::AuthAPIError;
 use crate::routes::{delete_account, login, logout, signup, verify_2fa, verify_token};
+use utils::tracing::{make_span_with_request_id, on_request, on_response};
 
 pub mod app_state;
 pub mod config;
@@ -65,6 +66,12 @@ impl Application {
             .route("/verify-token", post(verify_token))
             .route("/delete-account", delete(delete_account))
             .layer(cors)
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            )
             .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
@@ -75,6 +82,7 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
+        tracing::info!("listening on {}", &self.address);
         println!("listening on {}", &self.address);
         self.server.await
     }
@@ -114,4 +122,9 @@ pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
 pub fn get_redis_client(redis_hostname: String, password: String) -> RedisResult<Client> {
     let redis_url = format!("redis://:{password}@{redis_hostname}/");
     redis::Client::open(redis_url)
+}
+
+pub async fn get_redis_connection(redis_hostname: String, password: String) -> RedisResult<redis::aio::MultiplexedConnection> {
+    let client = get_redis_client(redis_hostname, password)?;
+    client.get_multiplexed_async_connection().await
 }
