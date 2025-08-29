@@ -16,6 +16,7 @@ services:
     image: ryanycwdev/auth-service
     restart: "always" # automatically restart container when server crashes
     environment:
+      RUN_MODE: ${RUN_MODE}
       APP_AUTH__JWT_SECRET: ${JWT_SECRET}
       APP_CORS__ALLOWED_ORIGINS: ${DOMAIN}
       APP_POSTGRES__PASSWORD: "${POSTGRES_PASSWORD}"
@@ -37,6 +38,8 @@ services:
       - "5432:5432"
     volumes:
       - db:/var/lib/postgresql/data
+    networks:
+      - app-network
   redis:
     image: redis:7.0-alpine
     restart: always
