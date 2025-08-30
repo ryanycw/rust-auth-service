@@ -25,7 +25,7 @@ pub async fn delete_account(
         .map_err(|e| match e {
             crate::domain::UserStoreError::UserNotFound => AuthAPIError::InvalidCredentials,
             crate::domain::UserStoreError::InvalidCredentials => AuthAPIError::InvalidCredentials,
-            _ => AuthAPIError::UnexpectedError,
+            _ => AuthAPIError::UnexpectedError(e.into()),
         })?;
 
     let response = Json(DeleteAccountResponse {

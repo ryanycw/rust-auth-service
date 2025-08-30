@@ -12,7 +12,8 @@ use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
-    init_tracing();
+    color_eyre::install().expect("Failed to install color_eyre");
+    init_tracing().expect("Failed to initialize tracing");
     // Load configuration
     let settings = Settings::new().expect("Failed to load configuration");
 
@@ -27,10 +28,9 @@ async fn main() {
         settings.redis.banned_token_key_prefix.clone(),
     )));
     let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new_with_config(
-        Arc::new(RwLock::new(configure_redis(
-            &settings.redis.hostname,
-            &settings.redis.password,
-        ).await)),
+        Arc::new(RwLock::new(
+            configure_redis(&settings.redis.hostname, &settings.redis.password).await,
+        )),
         settings.redis.two_fa_code_ttl_seconds,
         settings.redis.two_fa_code_key_prefix.clone(),
     )));
@@ -75,7 +75,10 @@ async fn configure_postgresql(database_url: &str) -> PgPool {
     pg_pool
 }
 
-pub async fn configure_redis(redis_hostname: &str, password: &str) -> redis::aio::MultiplexedConnection {
+pub async fn configure_redis(
+    redis_hostname: &str,
+    password: &str,
+) -> redis::aio::MultiplexedConnection {
     get_redis_connection(redis_hostname.to_owned(), password.to_owned())
         .await
         .expect("Failed to get Redis connection")

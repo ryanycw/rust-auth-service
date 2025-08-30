@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use color_eyre::eyre::Context;
 use redis::AsyncCommands;
 use tokio::sync::RwLock;
 
@@ -13,6 +14,7 @@ pub struct RedisBannedTokenStore {
 }
 
 impl RedisBannedTokenStore {
+    #[tracing::instrument(name = "New Redis Banned Token Store with Config", skip_all)]
     pub fn new_with_config(
         conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         token_ttl: u64,
@@ -26,6 +28,7 @@ impl RedisBannedTokenStore {
         }
     }
 
+    #[tracing::instrument(name = "New Redis Banned Token Store with Config and Prefix", skip_all)]
     pub fn new_with_config_and_prefix(
         conn: Arc<RwLock<redis::aio::MultiplexedConnection>>,
         token_ttl: u64,
@@ -43,26 +46,45 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
+    #[tracing::instrument(name = "Store Banned Token", skip_all)]
     async fn store_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
         let key = self.get_key(&token);
 
-        let mut conn = self.conn.write().await;
-        conn.set_ex(&key, true, self.token_ttl)
+        let ttl: u64 = self
+            .token_ttl
+            .try_into()
+            .wrap_err("failed to cast TOKEN_TTL_SECONDS to u64")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+
+        let _: () = self
+            .conn
+            .write()
             .await
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)
+            .set_ex(&key, true, ttl)
+            .await
+            .wrap_err("failed to set banned token in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+        Ok(())
     }
 
+    #[tracing::instrument(name = "Check Banned Token", skip_all)]
     async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
         let key = self.get_key(token);
 
-        let mut conn = self.conn.write().await;
-        conn.exists(&key)
+        let is_banned_bool: bool = self
+            .conn
+            .write()
             .await
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)
+            .exists(&key)
+            .await
+            .wrap_err("failed to check if token exists in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+        Ok(is_banned_bool)
     }
 }
 
 impl RedisBannedTokenStore {
+    #[tracing::instrument(name = "Get Banned Token Key", skip_all)]
     fn get_key(&self, token: &str) -> String {
         match &self.key_prefix {
             Some(prefix) => format!("{}{}{}", prefix, self.key_prefix_base, token),

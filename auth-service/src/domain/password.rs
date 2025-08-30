@@ -1,3 +1,4 @@
+use color_eyre::eyre::{eyre, Result};
 use regex::Regex;
 use validator::validate_length;
 
@@ -8,31 +9,33 @@ impl Password {
     /// Parses a password string into a Password.
     /// Returns an error if the password is invalid.
     /// Used for user input validation during signup.
-    pub fn parse(s: String) -> Result<Self, String> {
+    pub fn parse(s: String) -> Result<Self> {
         // Use validator crate for length validation
         if !validate_length(&s, Some(8), None, None) {
-            return Err("Password must be at least 8 characters long".to_string());
+            return Err(eyre!("Password must be at least 8 characters long"));
         }
 
         // Use regex validation for password strength requirements
         let uppercase_regex = Regex::new(r"[A-Z]").unwrap();
         if !uppercase_regex.is_match(&s) {
-            return Err("Password must contain at least one uppercase letter".to_string());
+            return Err(eyre!("Password must contain at least one uppercase letter"));
         }
 
         let lowercase_regex = Regex::new(r"[a-z]").unwrap();
         if !lowercase_regex.is_match(&s) {
-            return Err("Password must contain at least one lowercase letter".to_string());
+            return Err(eyre!("Password must contain at least one lowercase letter"));
         }
 
         let digit_regex = Regex::new(r"\d").unwrap();
         if !digit_regex.is_match(&s) {
-            return Err("Password must contain at least one number".to_string());
+            return Err(eyre!("Password must contain at least one number"));
         }
 
         let special_char_regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
         if !special_char_regex.is_match(&s) {
-            return Err("Password must contain at least one special character".to_string());
+            return Err(eyre!(
+                "Password must contain at least one special character"
+            ));
         }
 
         Ok(Password(s))
@@ -83,7 +86,7 @@ mod tests {
         let password = Password::parse("Test1!".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must be at least 8 characters long"
         );
     }
@@ -99,7 +102,7 @@ mod tests {
         let password = Password::parse("test123!".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must contain at least one uppercase letter"
         );
     }
@@ -109,7 +112,7 @@ mod tests {
         let password = Password::parse("TEST123!".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must contain at least one lowercase letter"
         );
     }
@@ -119,7 +122,7 @@ mod tests {
         let password = Password::parse("TestTest!".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must contain at least one number"
         );
     }
@@ -129,7 +132,7 @@ mod tests {
         let password = Password::parse("TestTest123".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must contain at least one special character"
         );
     }
@@ -139,7 +142,7 @@ mod tests {
         let password = Password::parse("".to_string());
         assert!(password.is_err());
         assert_eq!(
-            password.unwrap_err(),
+            password.unwrap_err().to_string(),
             "Password must be at least 8 characters long"
         );
     }

@@ -1,5 +1,7 @@
 use super::Email;
+use color_eyre::eyre::{Report, Result};
 use std::time::{Duration, SystemTime};
+use thiserror::Error;
 
 #[derive(Clone, Debug)]
 pub struct LoginAttempt {
@@ -74,9 +76,10 @@ pub trait LoginAttemptStore {
     async fn reset_attempts(&mut self, email: &Email) -> Result<(), LoginAttemptStoreError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum LoginAttemptStoreError {
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
 }
 
 #[cfg(test)]

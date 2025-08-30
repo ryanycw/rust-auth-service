@@ -3,6 +3,7 @@ use axum_extra::extract::{cookie::Cookie, CookieJar};
 
 use crate::{domain::AuthAPIError, utils::auth::validate_token, AppState};
 
+#[tracing::instrument(name = "Logout", skip_all)]
 pub async fn logout(
     State(app_state): State<AppState>,
     jar: CookieJar,
@@ -28,14 +29,14 @@ pub async fn logout(
     }
 
     // Add the token to the banned token store
-    if let Err(_) = app_state
+    if let Err(e) = app_state
         .banned_token_store
         .write()
         .await
         .store_token(token.to_string())
         .await
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
     // Remove the JWT cookie by creating a removal cookie

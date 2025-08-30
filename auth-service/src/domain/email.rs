@@ -1,14 +1,14 @@
+use color_eyre::eyre::{eyre, Result};
 use validator::validate_email;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {
-    pub fn parse(s: String) -> Result<Self, String> {
-        if validate_email(&s) {
-            Ok(Email(s))
-        } else {
-            Err("Invalid email format".to_string())
+    pub fn parse(s: String) -> Result<Self> {
+        match validate_email(&s) {
+            true => Ok(Email(s)),
+            false => Err(eyre!("Invalid email format")),
         }
     }
 }
@@ -52,49 +52,49 @@ mod tests {
     fn test_empty_email() {
         let email = Email::parse("".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_whitespace_only_email() {
         let email = Email::parse("   ".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_missing_at_symbol() {
         let email = Email::parse("testexample.com".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_multiple_at_symbols() {
         let email = Email::parse("test@@example.com".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_empty_local_part() {
         let email = Email::parse("@example.com".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_empty_domain_part() {
         let email = Email::parse("test@".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]
     fn test_domain_with_empty_parts() {
         let email = Email::parse("test@example..com".to_string());
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err(), "Invalid email format");
+        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
     }
 
     #[test]

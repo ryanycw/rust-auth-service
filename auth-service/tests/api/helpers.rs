@@ -53,10 +53,9 @@ impl TestApp {
         let recaptcha_service = Arc::new(MockRecaptchaService::new(recaptcha_success));
         let two_fa_code_store = Arc::new(RwLock::new(
             RedisTwoFACodeStore::new_with_config_and_prefix(
-                Arc::new(RwLock::new(configure_redis(
-                    &settings.redis.hostname,
-                    &settings.redis.password,
-                ).await)),
+                Arc::new(RwLock::new(
+                    configure_redis(&settings.redis.hostname, &settings.redis.password).await,
+                )),
                 settings.redis.two_fa_code_ttl_seconds,
                 settings.redis.two_fa_code_key_prefix.clone(),
                 format!("integration_test_{}:", test_id),
@@ -316,7 +315,10 @@ async fn delete_database(db_name: &str, database_url: &str) {
         .expect("Failed to drop the database.");
 }
 
-async fn configure_redis(redis_hostname: &str, password: &str) -> redis::aio::MultiplexedConnection {
+async fn configure_redis(
+    redis_hostname: &str,
+    password: &str,
+) -> redis::aio::MultiplexedConnection {
     get_redis_connection(redis_hostname.to_owned(), password.to_owned())
         .await
         .expect("Failed to get Redis connection")
