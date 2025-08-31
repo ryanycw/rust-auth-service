@@ -57,10 +57,11 @@ impl UserStore for HashmapUserStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use secrecy::Secret;
 
     async fn create_user(email: &str, password: &str) -> User {
-        let email = Email::parse(email.to_string()).unwrap();
-        let password = Password::parse(password.to_string()).unwrap();
+        let email = Email::parse(Secret::new(email.to_string())).unwrap();
+        let password = Password::parse(Secret::new(password.to_string())).unwrap();
         User::new(email, password, true)
     }
 
@@ -108,7 +109,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_non_existent_user() {
         let user_store = HashmapUserStore::default();
-        let email = Email::parse("nonexistent@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("nonexistent@example.com".to_string())).unwrap();
 
         let result = user_store.get_user(&email).await;
         assert!(result.is_err());
@@ -132,7 +133,7 @@ mod tests {
         let mut user_store = HashmapUserStore::default();
         let user = create_user("user@example.com", "Correct123!").await;
         let email = user.email.clone();
-        let wrong_password = Password::parse("Wrong456!".to_string()).unwrap();
+        let wrong_password = Password::parse(Secret::new("Wrong456!".to_string())).unwrap();
         user_store.add_user(user).await.unwrap();
 
         let result = user_store.validate_user(&email, &wrong_password).await;
@@ -143,8 +144,8 @@ mod tests {
     #[tokio::test]
     async fn test_validate_non_existent_user() {
         let user_store = HashmapUserStore::default();
-        let email = Email::parse("ghost@example.com".to_string()).unwrap();
-        let password = Password::parse("AnyPass123!".to_string()).unwrap();
+        let email = Email::parse(Secret::new("ghost@example.com".to_string())).unwrap();
+        let password = Password::parse(Secret::new("AnyPass123!".to_string())).unwrap();
 
         let result = user_store.validate_user(&email, &password).await;
         assert!(result.is_err());
@@ -202,7 +203,7 @@ mod tests {
         let mut user_store = HashmapUserStore::default();
         let user = create_user("delete@example.com", "Password123!").await;
         let email = user.email.clone();
-        let wrong_password = Password::parse("WrongPassword456!".to_string()).unwrap();
+        let wrong_password = Password::parse(Secret::new("WrongPassword456!".to_string())).unwrap();
 
         user_store.add_user(user).await.unwrap();
 
@@ -217,8 +218,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_non_existent_user() {
         let mut user_store = HashmapUserStore::default();
-        let email = Email::parse("nonexistent@example.com".to_string()).unwrap();
-        let password = Password::parse("AnyPassword123!".to_string()).unwrap();
+        let email = Email::parse(Secret::new("nonexistent@example.com".to_string())).unwrap();
+        let password = Password::parse(Secret::new("AnyPassword123!".to_string())).unwrap();
 
         let result = user_store.delete_user(&email, &password).await;
         assert!(result.is_err());

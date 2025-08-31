@@ -77,9 +77,10 @@ impl LoginAttemptStore for HashmapLoginAttemptStore {
 mod tests {
     use super::*;
     use crate::domain::Email;
+    use secrecy::Secret;
 
     async fn create_email(email_str: &str) -> Email {
-        Email::parse(email_str.to_string()).unwrap()
+        Email::parse(Secret::new(email_str.to_string())).unwrap()
     }
 
     #[tokio::test]

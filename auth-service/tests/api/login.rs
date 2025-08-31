@@ -1,10 +1,7 @@
 use crate::helpers::{get_random_email, TestApp};
-use auth_service::{
-    domain::Email,
-    routes::{LoginRequest, SignupRequest, TwoFactorAuthResponse},
-    ErrorResponse,
-};
+use auth_service::{domain::Email, routes::TwoFactorAuthResponse, ErrorResponse};
 use reqwest::StatusCode;
+use secrecy::Secret;
 use test_macros::with_db_cleanup;
 
 #[with_db_cleanup]
@@ -14,24 +11,23 @@ async fn login_returns_200_for_valid_credentials() {
 
     // First create a user
     let email = get_random_email();
-    let password = "Password123!".to_string();
+    let password = "Password123!";
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: false,
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": false,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Now login with those credentials
-    let login_body = LoginRequest {
-        email: email.clone(),
-        password: password.clone(),
-        recaptcha_token: None, // No reCAPTCHA needed for first attempt
-    };
+    let login_body = serde_json::json!({
+        "email": email,
+        "password": password,
+    });
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -79,24 +75,23 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     // First create a user with 2FA enabled
     let email = get_random_email();
-    let password = "Password123!".to_string();
+    let password = "Password123!";
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: true, // Enable 2FA for this user
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": true,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Now login with those credentials
-    let login_body = LoginRequest {
-        email: email.clone(),
-        password: password.clone(),
-        recaptcha_token: None,
-    };
+    let login_body = serde_json::json!({
+        "email": email,
+        "password": password,
+    });
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
@@ -116,7 +111,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
         // Get the stored code for this email
         let stored_code = two_fa_code_store_lock
-            .get_code(&Email::parse(email).unwrap())
+            .get_code(&Email::parse(Secret::new(email)).unwrap())
             .await
             .expect("2FA code should be stored for this email");
 
@@ -135,11 +130,10 @@ async fn should_return_400_if_invalid_input() {
     let mut app = TestApp::new(true).await;
 
     // Test with invalid email format
-    let login_body = LoginRequest {
-        email: "invalid-email".to_string(),
-        password: "Password123!".to_string(),
-        recaptcha_token: None,
-    };
+    let login_body = serde_json::json!({
+        "email": "invalid-email",
+        "password": "Password123!",
+    });
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -155,24 +149,23 @@ async fn should_return_401_if_incorrect_credentials() {
 
     // First create a user
     let email = get_random_email();
-    let password = "Password123!".to_string();
+    let password = "Password123!";
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: false,
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": false,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Now login with wrong password
-    let login_body = LoginRequest {
-        email: email.clone(),
-        password: "WrongPassword123!".to_string(),
-        recaptcha_token: None,
-    };
+    let login_body = serde_json::json!({
+        "email": email,
+        "password": "WrongPassword123!",
+    });
 
     let response = app.post_login(&login_body).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);

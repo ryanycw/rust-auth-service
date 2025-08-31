@@ -1,5 +1,4 @@
 use crate::helpers::{get_random_email, TestApp};
-use auth_service::routes::{DeleteAccountRequest, SignupRequest};
 use reqwest::StatusCode;
 use test_macros::with_db_cleanup;
 
@@ -12,21 +11,21 @@ async fn should_delete_account_with_valid_credentials() {
     let email = get_random_email();
     let password = "Password123!".to_string();
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: false,
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": false,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Now delete the account
-    let delete_body = DeleteAccountRequest {
-        email: email.clone(),
-        password: password.clone(),
-    };
+    let delete_body = serde_json::json!({
+        "email": email,
+        "password": password,
+    });
 
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::OK);
@@ -52,21 +51,21 @@ async fn should_fail_to_delete_account_with_wrong_password() {
     let email = get_random_email();
     let password = "Password123!".to_string();
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: false,
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": false,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Try to delete with wrong password
-    let delete_body = DeleteAccountRequest {
-        email: email.clone(),
-        password: "WrongPassword456!".to_string(),
-    };
+    let delete_body = serde_json::json!({
+        "email": email,
+        "password": "WrongPassword456!",
+    });
 
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
@@ -81,10 +80,10 @@ async fn should_fail_to_delete_account_with_wrong_password() {
 async fn should_fail_to_delete_non_existent_account() {
     let mut app = TestApp::new(true).await;
 
-    let delete_body = DeleteAccountRequest {
-        email: get_random_email(),
-        password: "Password123!".to_string(),
-    };
+    let delete_body = serde_json::json!({
+        "email": get_random_email(),
+        "password": "Password123!",
+    });
 
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
@@ -95,10 +94,10 @@ async fn should_fail_to_delete_non_existent_account() {
 async fn should_fail_to_delete_account_with_invalid_email() {
     let mut app = TestApp::new(true).await;
 
-    let delete_body = DeleteAccountRequest {
-        email: "invalid-email".to_string(),
-        password: "Password123!".to_string(),
-    };
+    let delete_body = serde_json::json!({
+        "email": "invalid-email",
+        "password": "Password123!",
+    });
 
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);
@@ -113,21 +112,21 @@ async fn should_fail_to_delete_account_with_invalid_password() {
     let email = get_random_email();
     let password = "Password123!".to_string();
 
-    let signup_body = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: false,
-        recaptcha_token: "test_token".to_string(),
-    };
+    let signup_body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": false,
+        "recaptchaToken": "test_token"
+    });
 
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
 
     // Try to delete with invalid password format
-    let delete_body = DeleteAccountRequest {
-        email: email.clone(),
-        password: "weak".to_string(), // Too weak password
-    };
+    let delete_body = serde_json::json!({
+        "email": email,
+        "password": "weak", // Too weak password
+    });
 
     let delete_response = app.delete_account(&delete_body).await;
     assert_eq!(delete_response.status(), StatusCode::BAD_REQUEST);

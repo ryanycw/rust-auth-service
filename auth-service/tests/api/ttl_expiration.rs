@@ -1,4 +1,5 @@
 use reqwest::{cookie::CookieStore, StatusCode};
+use secrecy::Secret;
 use test_macros::with_db_cleanup;
 use tokio::time::{sleep, Duration};
 
@@ -140,7 +141,7 @@ async fn two_fa_code_expires_after_ttl() {
         .two_fa_code_store
         .read()
         .await
-        .get_code(&auth_service::domain::Email::parse(email.clone()).unwrap())
+        .get_code(&auth_service::domain::Email::parse(Secret::new(email.clone())).unwrap())
         .await;
 
     assert!(
@@ -168,7 +169,7 @@ async fn two_fa_code_expires_after_ttl() {
         .two_fa_code_store
         .read()
         .await
-        .get_code(&auth_service::domain::Email::parse(email.clone()).unwrap())
+        .get_code(&auth_service::domain::Email::parse(Secret::new(email.clone())).unwrap())
         .await;
 
     assert!(

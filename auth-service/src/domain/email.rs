@@ -1,20 +1,40 @@
+use std::hash::Hash;
+
 use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, Secret};
 use validator::validate_email;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Email(String);
+#[derive(Debug, Clone)]
+pub struct Email(Secret<String>);
+
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Hash for Email {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.expose_secret().hash(state);
+    }
+}
+
+impl Eq for Email {}
 
 impl Email {
-    pub fn parse(s: String) -> Result<Self> {
-        match validate_email(&s) {
-            true => Ok(Email(s)),
-            false => Err(eyre!("Invalid email format")),
+    pub fn parse(s: Secret<String>) -> Result<Self> {
+        match validate_email(s.expose_secret()) {
+            true => Ok(Self(s)),
+            false => Err(eyre!(format!(
+                "{} is not a valid email.",
+                s.expose_secret()
+            ))),
         }
     }
 }
 
-impl AsRef<str> for Email {
-    fn as_ref(&self) -> &str {
+impl AsRef<Secret<String>> for Email {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
@@ -26,81 +46,116 @@ mod tests {
     use fake::Fake;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
+    use secrecy::Secret;
 
     #[test]
     fn test_valid_email() {
-        let email = Email::parse("test@example.com".to_string());
+        let email = Email::parse(Secret::new("test@example.com".to_string()));
         assert!(email.is_ok());
-        assert_eq!(email.unwrap().as_ref(), "test@example.com");
+        assert_eq!(email.unwrap().as_ref().expose_secret(), "test@example.com");
     }
 
     #[test]
     fn test_valid_email_with_subdomain() {
-        let email = Email::parse("user@mail.example.com".to_string());
+        let email = Email::parse(Secret::new("user@mail.example.com".to_string()));
         assert!(email.is_ok());
-        assert_eq!(email.unwrap().as_ref(), "user@mail.example.com");
+        assert_eq!(
+            email.unwrap().as_ref().expose_secret(),
+            "user@mail.example.com"
+        );
     }
 
     #[test]
     fn test_valid_email_with_plus() {
-        let email = Email::parse("user+tag@example.com".to_string());
+        let email = Email::parse(Secret::new("user+tag@example.com".to_string()));
         assert!(email.is_ok());
-        assert_eq!(email.unwrap().as_ref(), "user+tag@example.com");
+        assert_eq!(
+            email.unwrap().as_ref().expose_secret(),
+            "user+tag@example.com"
+        );
     }
 
     #[test]
     fn test_empty_email() {
-        let email = Email::parse("".to_string());
+        let plain_email = "".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_whitespace_only_email() {
-        let email = Email::parse("   ".to_string());
+        let plain_email = "   ".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_missing_at_symbol() {
-        let email = Email::parse("testexample.com".to_string());
+        let plain_email = "testexample.com".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_multiple_at_symbols() {
-        let email = Email::parse("test@@example.com".to_string());
+        let plain_email = "test@@example.com".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_empty_local_part() {
-        let email = Email::parse("@example.com".to_string());
+        let plain_email = "@example.com".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_empty_domain_part() {
-        let email = Email::parse("test@".to_string());
+        let plain_email = "test@".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_domain_with_empty_parts() {
-        let email = Email::parse("test@example..com".to_string());
+        let plain_email = "test@example..com".to_string();
+        let email = Email::parse(Secret::new(plain_email.clone()));
         assert!(email.is_err());
-        assert_eq!(email.unwrap_err().to_string(), "Invalid email format");
+        assert_eq!(
+            email.unwrap_err().to_string(),
+            format!("{} is not a valid email.", plain_email)
+        );
     }
 
     #[test]
     fn test_as_ref_trait() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
-        let email_str: &str = email.as_ref();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
+        let email_str: &str = email.as_ref().expose_secret();
         assert_eq!(email_str, "test@example.com");
     }
 
@@ -109,9 +164,12 @@ mod tests {
         // Test with 10 randomly generated valid emails
         for _ in 0..10 {
             let fake_email: String = SafeEmail().fake();
-            let email = Email::parse(fake_email.clone());
+            let email = Email::parse(Secret::new(fake_email.clone()));
             assert!(email.is_ok(), "Failed to parse fake email: {}", fake_email);
-            assert_eq!(email.unwrap().as_ref(), fake_email);
+            assert_eq!(
+                email.unwrap().as_ref().expose_secret().to_string(),
+                fake_email
+            );
         }
     }
 
@@ -119,8 +177,8 @@ mod tests {
     #[quickcheck]
     fn prop_valid_email_roundtrip(email: ValidEmail) -> bool {
         let email_str = email.0;
-        match Email::parse(email_str.clone()) {
-            Ok(parsed) => parsed.as_ref() == email_str,
+        match Email::parse(Secret::new(email_str.clone())) {
+            Ok(parsed) => parsed.as_ref().expose_secret().to_string() == email_str,
             Err(_) => false,
         }
     }
@@ -131,7 +189,7 @@ mod tests {
         if s.contains('@') {
             return true; // Skip strings that contain @
         }
-        Email::parse(s).is_err()
+        Email::parse(Secret::new(s)).is_err()
     }
 
     // Custom type for generating valid-looking emails in quickcheck

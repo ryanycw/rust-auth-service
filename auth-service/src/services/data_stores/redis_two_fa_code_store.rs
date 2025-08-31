@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::eyre::Context;
 use redis::AsyncCommands;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -124,8 +125,13 @@ impl RedisTwoFACodeStore {
     #[tracing::instrument(name = "Get Two FA Code Key", skip_all)]
     fn get_key(&self, email: &Email) -> String {
         match &self.key_prefix {
-            Some(prefix) => format!("{}{}{}", prefix, self.key_prefix_base, email.as_ref()),
-            None => format!("{}{}", self.key_prefix_base, email.as_ref()),
+            Some(prefix) => format!(
+                "{}{}{}",
+                prefix,
+                self.key_prefix_base,
+                email.as_ref().expose_secret()
+            ),
+            None => format!("{}{}", self.key_prefix_base, email.as_ref().expose_secret()),
         }
     }
 }
@@ -136,6 +142,7 @@ mod tests {
     use crate::config::Settings;
     use crate::domain::data_stores::{LoginAttemptId, TwoFACode};
     use crate::domain::Email;
+    use secrecy::Secret;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -159,7 +166,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_and_get_code() {
         let mut store = create_test_store("add_and_get_code").await;
-        let email = Email::parse("test_add_get@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test_add_get@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -185,7 +192,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_nonexistent_code() {
         let store = create_test_store("get_nonexistent_code").await;
-        let email = Email::parse("nonexistent_get@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("nonexistent_get@example.com".to_string())).unwrap();
 
         let result = store.get_code(&email).await;
         assert!(result.is_err());
@@ -198,7 +205,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = create_test_store("remove_code").await;
-        let email = Email::parse("test_remove@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test_remove@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -224,7 +231,7 @@ mod tests {
     #[tokio::test]
     async fn test_overwrite_existing_code() {
         let mut store = create_test_store("overwrite_existing_code").await;
-        let email = Email::parse("test_overwrite@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test_overwrite@example.com".to_string())).unwrap();
         let login_attempt_id1 = LoginAttemptId::default();
         let code1 = TwoFACode::default();
         let login_attempt_id2 = LoginAttemptId::default();
@@ -260,8 +267,8 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_emails() {
         let mut store = create_test_store("multiple_emails").await;
-        let email1 = Email::parse("test_multi1@example.com".to_string()).unwrap();
-        let email2 = Email::parse("test_multi2@example.com".to_string()).unwrap();
+        let email1 = Email::parse(Secret::new("test_multi1@example.com".to_string())).unwrap();
+        let email2 = Email::parse(Secret::new("test_multi2@example.com".to_string())).unwrap();
         let login_attempt_id1 = LoginAttemptId::default();
         let login_attempt_id2 = LoginAttemptId::default();
         let code1 = TwoFACode::default();
@@ -301,7 +308,8 @@ mod tests {
     #[tokio::test]
     async fn test_remove_nonexistent_code() {
         let mut store = create_test_store("remove_nonexistent_code").await;
-        let email = Email::parse("nonexistent_remove@example.com".to_string()).unwrap();
+        let email =
+            Email::parse(Secret::new("nonexistent_remove@example.com".to_string())).unwrap();
 
         // Should not error when removing non-existent code
         let result = store.remove_code(&email).await;

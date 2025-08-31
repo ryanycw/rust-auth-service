@@ -4,6 +4,7 @@ use auth_service::{
     ErrorResponse,
 };
 use reqwest::StatusCode;
+use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
 use test_macros::with_db_cleanup;
 
@@ -14,7 +15,7 @@ use crate::helpers::{get_random_email, TestApp};
 async fn should_return_200_if_correct_code() {
     // Make sure to assert the auth cookie gets set
     let mut app = TestApp::new(true).await;
-    let email = Email::parse(get_random_email()).unwrap();
+    let email = Email::parse(Secret::new(get_random_email())).unwrap();
 
     // Store a code in the 2FA store
     let login_attempt_id = LoginAttemptId::default();
@@ -30,7 +31,7 @@ async fn should_return_200_if_correct_code() {
 
     // Send correct 2FA request
     let correct_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
@@ -85,7 +86,7 @@ async fn should_return_400_if_invalid_input() {
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
     let mut app = TestApp::new(true).await;
-    let email = Email::parse(get_random_email()).unwrap();
+    let email = Email::parse(Secret::new(get_random_email())).unwrap();
 
     // Store a code in the 2FA store
     let correct_login_attempt_id = LoginAttemptId::default();
@@ -105,7 +106,7 @@ async fn should_return_401_if_incorrect_credentials() {
 
     // Test with wrong 2FA code (valid format but incorrect value)
     let wrong_code_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: correct_login_attempt_id.as_ref().to_string(),
         two_fa_code: "123456".to_string(), // Valid format but wrong code
     };
@@ -122,7 +123,7 @@ async fn should_return_401_if_incorrect_credentials() {
     // Test with wrong login attempt ID (valid UUID format but incorrect value)
     let wrong_login_id = LoginAttemptId::default();
     let wrong_id_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: wrong_login_id.as_ref().to_string(),
         two_fa_code: correct_code.as_ref().to_string(),
     };
@@ -157,7 +158,7 @@ async fn should_return_401_if_incorrect_credentials() {
 #[tokio::test]
 async fn should_return_401_if_same_code_twice() {
     let mut app = TestApp::new(true).await;
-    let email = Email::parse(get_random_email()).unwrap();
+    let email = Email::parse(Secret::new(get_random_email())).unwrap();
 
     // Store a code in the 2FA store
     let login_attempt_id = LoginAttemptId::default();
@@ -173,7 +174,7 @@ async fn should_return_401_if_same_code_twice() {
 
     // First request with correct code - should succeed
     let correct_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
@@ -190,7 +191,7 @@ async fn should_return_401_if_same_code_twice() {
 
     // Second request with the same code - should fail
     let same_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
         two_fa_code: two_fa_code.as_ref().to_string(),
     };
@@ -210,7 +211,7 @@ async fn should_return_401_if_same_code_twice() {
 async fn should_return_401_if_old_code() {
     // Call login twice. Then, attempt to call verify-fa with the 2FA code from the first login request. This should fail.
     let mut app = TestApp::new(true).await;
-    let email = Email::parse(get_random_email()).unwrap();
+    let email = Email::parse(Secret::new(get_random_email())).unwrap();
 
     // Add first 2FA code
     let first_login_attempt_id = LoginAttemptId::default();
@@ -249,7 +250,7 @@ async fn should_return_401_if_old_code() {
 
     // Try to use the first (old) 2FA code - this should fail
     let old_code_request = Verify2FARequest {
-        email: email.as_ref().to_string(),
+        email: email.as_ref().expose_secret().to_string(),
         login_attempt_id: first_login_attempt_id.as_ref().to_string(),
         two_fa_code: first_code.as_ref().to_string(),
     };
